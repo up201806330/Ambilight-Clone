@@ -115,4 +115,34 @@ void initpngimage(png_image *pi, struct shmimage *image)
 int main(int argc, char *argv[])
 {
 
+    Display *dsp = XOpenDisplay(NULL);
+    if (!dsp)
+    {
+        printf(NAME ": could not open a connection to the X server\n");
+        return 1;
+    }
+
+    if (!XShmQueryExtension(dsp))
+    {
+        XCloseDisplay(dsp);
+        printf(NAME ": the X server does not support the XSHM extension\n");
+        return 1;
+    }
+
+    int screen = XDefaultScreen(dsp);
+    struct shmimage image;
+    initimage(&image);
+    if (!createimage(dsp, &image, XDisplayWidth(dsp, screen), XDisplayHeight(dsp, screen)))
+    {
+        XCloseDisplay(dsp);
+        return 1;
+    }
+    while (1)
+    {
+        getrootwindow(dsp, &image);
+    }
+
+    destroyimage(dsp, &image);
+    XCloseDisplay(dsp);
+    return 0;
 }
