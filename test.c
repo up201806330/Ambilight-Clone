@@ -231,22 +231,28 @@ int main()
         getrootwindow(dsp, &image);
 
         u_int8_t **leds = pixelsToLeds(image.data, pixels_per_led_height, pixels_per_led_width, image.ximage->height, image.ximage->width);
-        for (int i = 0; i < 30; i++)
+        int range = NUM_LEDS_WIDTH;
+        for (int i = 0; i < range; i++)
         {
             printf("%02x%02x%02x ", leds[i][0], leds[i][1], leds[i][2]);
         }
         printf("\n");
-        for (int i = 30; i < 50; i++)
+
+        for (int i = range; i < range + NUM_LEDS_HEIGHT; i++)
         {
             printf("%02x%02x%02x ", leds[i][0], leds[i][1], leds[i][2]);
         }
         printf("\n");
-        for (int i = 50; i < 80; i++)
+        range = range + NUM_LEDS_HEIGHT;
+
+        for (int i = range; i < range + NUM_LEDS_WIDTH; i++)
         {
             printf("%02x%02x%02x ", leds[i][0], leds[i][1], leds[i][2]);
         }
         printf("\n");
-        for (int i = 80; i < 100; i++)
+        range = range + NUM_LEDS_WIDTH;
+
+        for (int i = range; i < range + NUM_LEDS_HEIGHT; i++)
         {
             printf("%02x%02x%02x ", leds[i][0], leds[i][1], leds[i][2]);
         }
