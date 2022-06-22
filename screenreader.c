@@ -201,6 +201,35 @@ u_int8_t **pixelsToLeds(unsigned int *pixels, int pixels_per_led_height, int pix
     return leds;
 }
 
+void ledPrint(u_int8_t **leds){
+    int range = NUM_LEDS_WIDTH;
+    for (int i = 0; i < range; i++)
+    {
+        printf("%02x%02x%02x ", leds[i][0], leds[i][1], leds[i][2]);
+    }
+    printf("\n");
+
+    for (int i = range; i < range + NUM_LEDS_HEIGHT; i++)
+    {
+        printf("%02x%02x%02x ", leds[i][0], leds[i][1], leds[i][2]);
+    }
+    printf("\n");
+    range = range + NUM_LEDS_HEIGHT;
+
+    for (int i = range; i < range + NUM_LEDS_WIDTH; i++)
+    {
+        printf("%02x%02x%02x ", leds[i][0], leds[i][1], leds[i][2]);
+    }
+    printf("\n");
+    range = range + NUM_LEDS_WIDTH;
+
+    for (int i = range; i < range + NUM_LEDS_HEIGHT; i++)
+    {
+        printf("%02x%02x%02x ", leds[i][0], leds[i][1], leds[i][2]);
+    }
+    printf("\n\n");
+}
+
 int main()
 {
     
@@ -237,32 +266,7 @@ int main()
         getrootwindow(dsp, &image);
 
         u_int8_t **leds = pixelsToLeds(image.data, pixels_per_led_height, pixels_per_led_width, image.ximage->height, image.ximage->width);
-        int range = NUM_LEDS_WIDTH;
-        for (int i = 0; i < range; i++)
-        {
-            // printf("%02x%02x%02x ", leds[i][0], leds[i][1], leds[i][2]);
-        }
-        // printf("\n");
-
-        for (int i = range; i < range + NUM_LEDS_HEIGHT; i++)
-        {
-            // printf("%02x%02x%02x ", leds[i][0], leds[i][1], leds[i][2]);
-        }
-        // printf("\n");
-        range = range + NUM_LEDS_HEIGHT;
-
-        for (int i = range; i < range + NUM_LEDS_WIDTH; i++)
-        {
-            // printf("%02x%02x%02x ", leds[i][0], leds[i][1], leds[i][2]);
-        }
-        // printf("\n");
-        range = range + NUM_LEDS_WIDTH;
-
-        for (int i = range; i < range + NUM_LEDS_HEIGHT; i++)
-        {
-            // printf("%02x%02x%02x ", leds[i][0], leds[i][1], leds[i][2]);
-        }
-        // printf("\n\n");
+        ledPrint(leds);
         free(leds);
         sleep(1);
     }
