@@ -1,4 +1,5 @@
 #include <fcntl.h>
+#include <signal.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -255,10 +256,12 @@ int createAndOpenShm(){
     return 0;
 }
 
-int closeShm(){
+int closeAndDeleteShm(){
     if(munmap((void*)shm, SHM_SIZE) != 0) return 1;
 
     if(close(shm_fd) != 0) return 1;
+
+    if(shm_unlink(SHM_NAME) != 0) return 1;
 
     return 0;
 }
@@ -277,9 +280,19 @@ int writeToShm(u_int8_t **leds){
     return 0;
 }
 
+void signal_callback_handler(int signum) {
+    fprintf(stderr, "Signal callback\n");
+
+    if(closeAndDeleteShm()) exit(1);
+
+    exit(0);
+}
+
 int main()
 {
     if(createAndOpenShm()) return 1;
+
+    signal(SIGINT, signal_callback_handler);
     
     Display *dsp = XOpenDisplay(NULL);
     if (!dsp)
@@ -327,7 +340,7 @@ int main()
     destroyimage(dsp, &image);
     XCloseDisplay(dsp);
 
-    if(closeShm()) return 1;
+    if(closeAndDeleteShm()) return 1;
 
     return 0;
 }
