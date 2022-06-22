@@ -1,4 +1,5 @@
 #include <fcntl.h>
+#include <semaphore.h>
 #include <signal.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -239,12 +240,15 @@ void ledPrint(u_int8_t **leds){
 }
 
 const char SHM_NAME[] = "/shm_leds";
+const char SEM_NAME[] = "/sem_leds";
 const mode_t SHM_MODE = 0777;
 const off_t SHM_SIZE = NUM_LEDS_TOTAL*3;
 int shm_fd;
 void *shm = NULL;
+sem_t *sem = NULL;
 
 int createAndOpenShm(){
+    // Shared memory
     shm_fd = shm_open(SHM_NAME, O_RDWR | O_CREAT, SHM_MODE);
     if(shm_fd == -1) return 1;
 
@@ -252,6 +256,17 @@ int createAndOpenShm(){
 
     shm = mmap(NULL, SHM_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
     if(shm == MAP_FAILED) return 1;
+
+    // Semaphore
+    if (sem_unlink(SEM_NAME) != 0){
+        perror("createAndOpenShm");
+    }
+
+    sem = sem_open(SEM_NAME, O_CREAT, 0777, 1);
+
+    if (sem == SEM_FAILED){
+        return 1;
+    }
 
     return 0;
 }
@@ -263,12 +278,18 @@ int closeAndDeleteShm(){
 
     if(shm_unlink(SHM_NAME) != 0) return 1;
 
+    if (sem_destroy(sem) != 0) return 1;
+
+    if (sem_unlink(SEM_NAME) != 0) return 1;
+
     return 0;
 }
 
 // Flatten array of LED color components
 // and write to shared memory
 int writeToShm(u_int8_t **leds){
+    sem_wait(sem);
+
     uint8_t *shm_leds = (uint8_t*)shm;
     int idx = 0;
     for(int i = 0; i < NUM_LEDS_TOTAL; ++i){
@@ -277,6 +298,7 @@ int writeToShm(u_int8_t **leds){
         }
     }
 
+    sem_post(sem);
     return 0;
 }
 
@@ -290,7 +312,10 @@ void signal_callback_handler(int signum) {
 
 int main()
 {
-    if(createAndOpenShm()) return 1;
+    if(createAndOpenShm()) {
+        perror("[SCREENREADER] Could not open shared memory");
+        return 1;
+    }
 
     signal(SIGINT, signal_callback_handler);
     
@@ -317,9 +342,6 @@ int main()
         return 1;
     }
 
-    printf("SHM_KEY %d\n", IPC_PRIVATE);
-    fflush(stdout);
-
     int pixels_per_led_height = image.ximage->height / NUM_LEDS_HEIGHT;
     int pixels_per_led_width = image.ximage->width / NUM_LEDS_WIDTH;
     while (true)
@@ -335,7 +357,7 @@ int main()
         }
 
         // free(leds);
-        sleep(1);
+        sleep(0.05);
     }
     destroyimage(dsp, &image);
     XCloseDisplay(dsp);
