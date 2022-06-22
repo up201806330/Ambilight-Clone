@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
 import time
-from rpi_ws281x import PixelStrip, Color
-import sys
+from multiprocessing import shared_memory
+import posix_ipc
 
-import sysv_ipc 
+from rpi_ws281x import Color, PixelStrip
 
 # Parametrizable LED strip configuration:
 NUM_LEDS_WIDTH = 30
@@ -87,62 +87,55 @@ def colorFromHex(hex : str) -> Color:
     return Color(*tuple(int(hex[i:i+2], 16) for i in (0, 2, 4)))
 
 def main():
-    colors = []
-    length = 0
 
-    shm_key = None
-    for line in sys.stdin:
-        if 'q' == line.rstrip():
-            break
-        if line.startswith('SHM_KEY'):
-            shm_key = int(line.split()[1])
-            print("SHM_KEY=", shm_key)
-            break
-    if shm_key is None:
-        print('[LEDS] Shared Memory Key not received; Aborting')
-        return
+    # Hardcoded
+    shm_name = "/shm_leds"
+    sem_name = "/sem_leds"
     
-    
-    while True:
-        time.sleep(1)
+    # Initialize shared memory & semaphore
+    shm = shared_memory.SharedMemory(shm_name, create=False)
+    sem = posix_ipc.Semaphore(sem_name)
 
-        # Attempt to open shared memory segment
-        # Size is number of LEDs * 4 bytes for RGBA
-        memory = sysv_ipc.SharedMemory(shm_key, size=LED_COUNT*3)
-        buffer = (memory.read())
-        print(buffer)
+    # Create NeoPixel object with appropriate configuration.
+    strip = PixelStrip(LED_COUNT, LED_PIN, LED_FREQ_HZ, LED_DMA, LED_INVERT, LED_BRIGHTNESS, LED_CHANNEL)
+    # Intialize the library (must be called once before other functions).
+    strip.begin()
+    print('[LEDS] Press Ctrl-C to quit.')
 
-    # print(colors, length)
-    # if length != 0:
+    try:
+        while True:
+            # Fill in colors
+            colors = []
+
+            sem.acquire()
+            for i in range(LED_COUNT):
+                colorHex = ''.join('{:02x}'.format(x) for x in bytes(shm.buf[3*i:3*i+3]))
+                colors.append(colorFromHex(colorHex))
+            sem.release()
+            
+            for index, color in enumerate(colors):
+                strip.setPixelColor(index, color)
+            strip.show()
+            time.sleep(0.1)
+
+            # print('Color wipe animations.')
+            # colorWipe(strip, Color(255, 0, 0))  # Red wipe
+            # colorWipe(strip, Color(0, 255, 0))  # Green wipe
+            # colorWipe(strip, Color(0, 0, 255))  # Blue wipe
+            # print('Theater chase animations.')
+            # theaterChase(strip, Color(127, 127, 127))  # White theater chase
+            # theaterChase(strip, Color(127, 0, 0))  # Red theater chase
+            # theaterChase(strip, Color(0, 0, 127))  # Blue theater chase
+            # print('Rainbow animations.')
+            # rainbow(strip)
+            # rainbowCycle(strip)
+            # theaterChaseRainbow(strip)
+
+    except KeyboardInterrupt:
+        colorWipe(strip, Color(0, 0, 0), 1)
+        shm.close()
+        sem.close()
         
-    #     # Create NeoPixel object with appropriate configuration.
-    #     strip = PixelStrip(length, LED_PIN, LED_FREQ_HZ, LED_DMA, LED_INVERT, LED_BRIGHTNESS, LED_CHANNEL)
-    #     # Intialize the library (must be called once before other functions).
-    #     strip.begin()
-    #     print('[LEDS] Press Ctrl-C to quit.')
-
-    #     try:
-    #         while True:
-    #             # Fill in colors
-    #             for index, color in enumerate(colors):
-    #                 strip.setPixelColor(index, color)
-    #             strip.show()
-
-    #             # print('Color wipe animations.')
-    #             # colorWipe(strip, Color(255, 0, 0))  # Red wipe
-    #             # colorWipe(strip, Color(0, 255, 0))  # Green wipe
-    #             # colorWipe(strip, Color(0, 0, 255))  # Blue wipe
-    #             # print('Theater chase animations.')
-    #             # theaterChase(strip, Color(127, 127, 127))  # White theater chase
-    #             # theaterChase(strip, Color(127, 0, 0))  # Red theater chase
-    #             # theaterChase(strip, Color(0, 0, 127))  # Blue theater chase
-    #             # print('Rainbow animations.')
-    #             # rainbow(strip)
-    #             # rainbowCycle(strip)
-    #             # theaterChaseRainbow(strip)
-
-    #     except KeyboardInterrupt:
-    #         colorWipe(strip, Color(0, 0, 0), 1)
 
 # Main program logic follows:
 if __name__ == '__main__':
