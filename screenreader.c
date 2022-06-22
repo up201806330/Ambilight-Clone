@@ -68,12 +68,12 @@ int createimage(Display *dsp, struct shmimage *image, int width, int height)
 
     // Allocate the memory needed for the XImage structure
     image->ximage = XShmCreateImage(dsp, XDefaultVisual(dsp, XDefaultScreen(dsp)),
-                                    DefaultDepth(dsp, XDefaultScreen(dsp)), ZPixmap, 0,
+                                    DefaultDepth(dsp, XDefaultScreen(dsp)), ZPixmap, NULL,
                                     &image->shminfo, 0, 0);
     if (!image->ximage)
     {
         destroyimage(dsp, image);
-        printf("Could not allocate the XImage structure\n");
+        perror("[SCREENREADER] Could not allocate the XImage structure\n");
         return false;
     }
 
@@ -82,7 +82,10 @@ int createimage(Display *dsp, struct shmimage *image, int width, int height)
     image->ximage->height = height;
 
     // Ask the X server to attach the shared memory segment and sync
-    XShmAttach(dsp, &image->shminfo);
+    if (XShmAttach(dsp, &image->shminfo) == 0){
+        perror("[SCREENREADER] Could not attach XImage structure");
+        return false;
+    }
     XSync(dsp, false);
     return true;
 }
@@ -124,8 +127,8 @@ u_int8_t **pixelsToLeds(unsigned int *pixels, int pixels_per_led_height, int pix
     u_int8_t **leds = (u_int8_t **)malloc((NUM_LEDS_HEIGHT * 2 + NUM_LEDS_WIDTH * 2) * sizeof(u_int8_t *));
     for (int led_y = 0; led_y < NUM_LEDS_HEIGHT; led_y++)
     {
-        // Top part of the led strip
-        if (led_y == 0)
+        // Bottom of the led strip
+        if (led_y == NUM_LEDS_HEIGHT - 1)
         {
             for (int led_x = 0; led_x < NUM_LEDS_WIDTH; led_x++)
             {
@@ -144,8 +147,8 @@ u_int8_t **pixelsToLeds(unsigned int *pixels, int pixels_per_led_height, int pix
                 leds[led_x] = averageRGB(total_r, total_g, total_b, pixels_per_led_width, pixels_per_led_height);
             }
         }
-        // Bottom of the led strip
-        else if (led_y == NUM_LEDS_HEIGHT - 1)
+        // Top part of the led strip
+        else if (led_y == 0)
         {
             for (int led_x = 0; led_x < NUM_LEDS_WIDTH; led_x++)
             {
@@ -169,21 +172,6 @@ u_int8_t **pixelsToLeds(unsigned int *pixels, int pixels_per_led_height, int pix
         int total_r = 0, total_g = 0, total_b = 0;
         for (int pixel_y = led_y * pixels_per_led_height; pixel_y < (led_y + 1) * pixels_per_led_height; pixel_y++)
         {
-            for (int pixel_x = 0; pixel_x < pixels_per_led_width; pixel_x++)
-            {
-                u_int8_t r, g, b;
-                convertRGB(pixels[pixel_y * screen_width + pixel_x], &r, &g, &b);
-                total_r += r;
-                total_g += g;
-                total_b += b;
-            }
-        }
-        leds[NUM_LEDS_WIDTH*2 + NUM_LEDS_HEIGHT*2 - 1 - led_y] = averageRGB(total_r, total_g, total_b, pixels_per_led_width, pixels_per_led_height);
-
-        // Right led for y height
-        total_r = 0, total_g = 0, total_b = 0;
-        for (int pixel_y = led_y * pixels_per_led_height; pixel_y < (led_y + 1) * pixels_per_led_height; pixel_y++)
-        {
             for (int pixel_x = screen_width - pixels_per_led_width; pixel_x < screen_width; pixel_x++)
             {
                 u_int8_t r, g, b;
@@ -194,6 +182,21 @@ u_int8_t **pixelsToLeds(unsigned int *pixels, int pixels_per_led_height, int pix
             }
         }
         leds[NUM_LEDS_WIDTH + led_y] = averageRGB(total_r, total_g, total_b, pixels_per_led_width, pixels_per_led_height);
+
+        // Right led for y height
+        total_r = 0, total_g = 0, total_b = 0;
+        for (int pixel_y = led_y * pixels_per_led_height; pixel_y < (led_y + 1) * pixels_per_led_height; pixel_y++)
+        {
+            for (int pixel_x = 0; pixel_x < pixels_per_led_width; pixel_x++)
+            {
+                u_int8_t r, g, b;
+                convertRGB(pixels[pixel_y * screen_width + pixel_x], &r, &g, &b);
+                total_r += r;
+                total_g += g;
+                total_b += b;
+            }
+        }
+        leds[NUM_LEDS_WIDTH*2 + NUM_LEDS_HEIGHT*2 - 1 - led_y] = averageRGB(total_r, total_g, total_b, pixels_per_led_width, pixels_per_led_height);
     }
     return leds;
 }
@@ -204,14 +207,14 @@ int main()
     Display *dsp = XOpenDisplay(NULL);
     if (!dsp)
     {
-        printf( "Could not open a connection to the X server\n");
+        perror("[SCREENREADER] Could not open a connection to the X server\n");
         return 1;
     }
 
     if (!XShmQueryExtension(dsp))
     {
         XCloseDisplay(dsp);
-        printf("The X server does not support the XSHM extension\n");
+        perror("[SCREENREADER] The X server does not support the XSHM extension\n");
         return 1;
     }
 
@@ -224,6 +227,9 @@ int main()
         return 1;
     }
 
+    printf("SHM_KEY %d\n", IPC_PRIVATE);
+    fflush(stdout);
+
     int pixels_per_led_height = image.ximage->height / NUM_LEDS_HEIGHT;
     int pixels_per_led_width = image.ximage->width / NUM_LEDS_WIDTH;
     while (true)
@@ -234,29 +240,29 @@ int main()
         int range = NUM_LEDS_WIDTH;
         for (int i = 0; i < range; i++)
         {
-            printf("%02x%02x%02x ", leds[i][0], leds[i][1], leds[i][2]);
+            // printf("%02x%02x%02x ", leds[i][0], leds[i][1], leds[i][2]);
         }
-        printf("\n");
+        // printf("\n");
 
         for (int i = range; i < range + NUM_LEDS_HEIGHT; i++)
         {
-            printf("%02x%02x%02x ", leds[i][0], leds[i][1], leds[i][2]);
+            // printf("%02x%02x%02x ", leds[i][0], leds[i][1], leds[i][2]);
         }
-        printf("\n");
+        // printf("\n");
         range = range + NUM_LEDS_HEIGHT;
 
         for (int i = range; i < range + NUM_LEDS_WIDTH; i++)
         {
-            printf("%02x%02x%02x ", leds[i][0], leds[i][1], leds[i][2]);
+            // printf("%02x%02x%02x ", leds[i][0], leds[i][1], leds[i][2]);
         }
-        printf("\n");
+        // printf("\n");
         range = range + NUM_LEDS_WIDTH;
 
         for (int i = range; i < range + NUM_LEDS_HEIGHT; i++)
         {
-            printf("%02x%02x%02x ", leds[i][0], leds[i][1], leds[i][2]);
+            // printf("%02x%02x%02x ", leds[i][0], leds[i][1], leds[i][2]);
         }
-        printf("\n\n");
+        // printf("\n\n");
         free(leds);
         sleep(1);
     }
