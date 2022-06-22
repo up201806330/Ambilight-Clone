@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
-from operator import length_hint
 import time
 from rpi_ws281x import PixelStrip, Color
-import argparse
 import sys
+
+import sysv_ipc 
 
 # Parametrizable LED strip configuration:
 NUM_LEDS_WIDTH = 30
@@ -86,46 +86,64 @@ def theaterChaseRainbow(strip, wait_ms=50):
 def colorFromHex(hex : str) -> Color:
     return Color(*tuple(int(hex[i:i+2], 16) for i in (0, 2, 4)))
 
-# Main program logic follows:
-if __name__ == '__main__':
-
+def main():
     colors = []
     length = 0
+
+    shm_key = None
     for line in sys.stdin:
         if 'q' == line.rstrip():
             break
-        for hex in line.split():
-            length += 1
-            colors.append(colorFromHex(hex))
+        if line.startswith('SHM_KEY'):
+            shm_key = int(line.split()[1])
+            print("SHM_KEY=", shm_key)
+            break
+    if shm_key is None:
+        print('[LEDS] Shared Memory Key not received; Aborting')
+        return
     
-    print(colors, length)
-    if length != 0:
+    
+    while True:
+        time.sleep(1)
+
+        # Attempt to open shared memory segment
+        # Size is number of LEDs * 4 bytes for RGBA
+        memory = sysv_ipc.SharedMemory(shm_key, size=LED_COUNT*3)
+        buffer = (memory.read())
+        print(buffer)
+
+    # print(colors, length)
+    # if length != 0:
         
-        # Create NeoPixel object with appropriate configuration.
-        strip = PixelStrip(length, LED_PIN, LED_FREQ_HZ, LED_DMA, LED_INVERT, LED_BRIGHTNESS, LED_CHANNEL)
-        # Intialize the library (must be called once before other functions).
-        strip.begin()
-        print('Press Ctrl-C to quit.')
+    #     # Create NeoPixel object with appropriate configuration.
+    #     strip = PixelStrip(length, LED_PIN, LED_FREQ_HZ, LED_DMA, LED_INVERT, LED_BRIGHTNESS, LED_CHANNEL)
+    #     # Intialize the library (must be called once before other functions).
+    #     strip.begin()
+    #     print('[LEDS] Press Ctrl-C to quit.')
 
-        try:
-            while True:
-                # Fill in colors
-                for index, color in enumerate(colors):
-                    strip.setPixelColor(index, color)
-                strip.show()
+    #     try:
+    #         while True:
+    #             # Fill in colors
+    #             for index, color in enumerate(colors):
+    #                 strip.setPixelColor(index, color)
+    #             strip.show()
 
-                # print('Color wipe animations.')
-                # colorWipe(strip, Color(255, 0, 0))  # Red wipe
-                # colorWipe(strip, Color(0, 255, 0))  # Green wipe
-                # colorWipe(strip, Color(0, 0, 255))  # Blue wipe
-                # print('Theater chase animations.')
-                # theaterChase(strip, Color(127, 127, 127))  # White theater chase
-                # theaterChase(strip, Color(127, 0, 0))  # Red theater chase
-                # theaterChase(strip, Color(0, 0, 127))  # Blue theater chase
-                # print('Rainbow animations.')
-                # rainbow(strip)
-                # rainbowCycle(strip)
-                # theaterChaseRainbow(strip)
+    #             # print('Color wipe animations.')
+    #             # colorWipe(strip, Color(255, 0, 0))  # Red wipe
+    #             # colorWipe(strip, Color(0, 255, 0))  # Green wipe
+    #             # colorWipe(strip, Color(0, 0, 255))  # Blue wipe
+    #             # print('Theater chase animations.')
+    #             # theaterChase(strip, Color(127, 127, 127))  # White theater chase
+    #             # theaterChase(strip, Color(127, 0, 0))  # Red theater chase
+    #             # theaterChase(strip, Color(0, 0, 127))  # Blue theater chase
+    #             # print('Rainbow animations.')
+    #             # rainbow(strip)
+    #             # rainbowCycle(strip)
+    #             # theaterChaseRainbow(strip)
 
-        except KeyboardInterrupt:
-            colorWipe(strip, Color(0, 0, 0), 1)
+    #     except KeyboardInterrupt:
+    #         colorWipe(strip, Color(0, 0, 0), 1)
+
+# Main program logic follows:
+if __name__ == '__main__':
+    main()
