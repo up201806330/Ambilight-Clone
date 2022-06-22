@@ -1,8 +1,13 @@
+#include <fcntl.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
+#include <sys/mman.h>
 #include <sys/shm.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <X11/extensions/XShm.h>
@@ -11,6 +16,8 @@
 #define NUM_LEDS_WIDTH 30
 #define NUM_LEDS_HEIGHT 20
 #define BPP 4
+
+const int NUM_LEDS_TOTAL = 2 * (NUM_LEDS_WIDTH + NUM_LEDS_HEIGHT);
 
 struct shmimage
 {
@@ -230,32 +237,49 @@ void ledPrint(u_int8_t **leds){
     printf("\n\n");
 }
 
+const char SHM_NAME[] = "/shm_leds";
+const mode_t SHM_MODE = 0777;
+const off_t SHM_SIZE = NUM_LEDS_TOTAL*3;
+int shm_fd;
+void *shm = NULL;
+
+int createAndOpenShm(){
+    shm_fd = shm_open(SHM_NAME, O_RDWR | O_CREAT, SHM_MODE);
+    if(shm_fd == -1) return 1;
+
+    if(ftruncate(shm_fd, SHM_SIZE) < 0) return 1;
+
+    shm = mmap(NULL, SHM_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
+    if(shm == MAP_FAILED) return 1;
+
+    return 0;
+}
+
+int closeShm(){
+    if(munmap((void*)shm, SHM_SIZE) != 0) return 1;
+
+    if(close(shm_fd) != 0) return 1;
+
+    return 0;
+}
+
 // Flatten array of LED color components
 // and write to shared memory
-bool writeToShm(u_int8_t **leds){
-    const int NUM_LEDS_TOTAL = 2 * (NUM_LEDS_WIDTH + NUM_LEDS_HEIGHT);
-
-    char (*ledHexValues)[NUM_LEDS_TOTAL][6];
-    int shmid = shmget(IPC_PRIVATE, NUM_LEDS_TOTAL*6, IPC_CREAT| 0660);
-
-    ledHexValues = shmat(shmid, NULL, 0);
-    if ((void *)ledHexValues == (void *)-1){
-        perror("Error allocating shared memory for LED strip hex values");
-        return false;
+int writeToShm(u_int8_t **leds){
+    uint8_t *shm_leds = (uint8_t*)shm;
+    int idx = 0;
+    for(int i = 0; i < NUM_LEDS_TOTAL; ++i){
+        for(int j = 0; j < 3; ++j){
+            shm_leds[idx++] = leds[i][j];
+        }
     }
 
-    for (int i = 0; i < NUM_LEDS_TOTAL; i++){
-        char hex[6];
-        sprintf(hex, "%02x%02x%02x", leds[i][0], leds[i][1], leds[i][2]);
-        strcpy((*ledHexValues)[i], hex);
-    }
-
-    shmctl(shmid, IPC_RMID, 0);
-    return true;
+    return 0;
 }
 
 int main()
 {
+    if(createAndOpenShm()) return 1;
     
     Display *dsp = XOpenDisplay(NULL);
     if (!dsp)
@@ -290,7 +314,7 @@ int main()
         getrootwindow(dsp, &image);
 
         u_int8_t **leds = pixelsToLeds(image.data, pixels_per_led_height, pixels_per_led_width, image.ximage->height, image.ximage->width);
-        if (writeToShm(leds)){
+        if (writeToShm(leds) == 0){
             ledPrint(leds);
         }
         else {
@@ -302,4 +326,8 @@ int main()
     }
     destroyimage(dsp, &image);
     XCloseDisplay(dsp);
+
+    if(closeShm()) return 1;
+
+    return 0;
 }
