@@ -230,6 +230,30 @@ void ledPrint(u_int8_t **leds){
     printf("\n\n");
 }
 
+// Flatten array of LED color components
+// and write to shared memory
+bool writeToShm(u_int8_t **leds){
+    const int NUM_LEDS_TOTAL = 2 * (NUM_LEDS_WIDTH + NUM_LEDS_HEIGHT);
+
+    char (*ledHexValues)[NUM_LEDS_TOTAL][6];
+    int shmid = shmget(IPC_PRIVATE, NUM_LEDS_TOTAL*6, IPC_CREAT| 0660);
+
+    ledHexValues = shmat(shmid, NULL, 0);
+    if ((void *)ledHexValues == (void *)-1){
+        perror("Error allocating shared memory for LED strip hex values");
+        return false;
+    }
+
+    for (int i = 0; i < NUM_LEDS_TOTAL; i++){
+        char hex[6];
+        sprintf(hex, "%02x%02x%02x", leds[i][0], leds[i][1], leds[i][2]);
+        strcpy((*ledHexValues)[i], hex);
+    }
+
+    shmctl(shmid, IPC_RMID, 0);
+    return true;
+}
+
 int main()
 {
     
@@ -266,8 +290,14 @@ int main()
         getrootwindow(dsp, &image);
 
         u_int8_t **leds = pixelsToLeds(image.data, pixels_per_led_height, pixels_per_led_width, image.ximage->height, image.ximage->width);
-        ledPrint(leds);
-        free(leds);
+        if (writeToShm(leds)){
+            ledPrint(leds);
+        }
+        else {
+            printf("Error writting to shared memory");
+        }
+
+        // free(leds);
         sleep(1);
     }
     destroyimage(dsp, &image);
