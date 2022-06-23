@@ -327,6 +327,15 @@ class LedProcessor {
         return w;
     }
 public:
+    /**
+     * @brief Construct a new Led Processor object
+     * 
+     * @param processor_ 
+     * @param NUM_LEDS_X_ 
+     * @param NUM_LEDS_Y_ 
+     * @param SCALE_FACTOR_ Scale factor for exponential decay. The larger it is, the
+     *                      slower it updates. Default value can be 1, but best value is around 0.05
+     */
     LedProcessor(ScreenProcessor &processor_, const int NUM_LEDS_X_, const int NUM_LEDS_Y_, const float SCALE_FACTOR_):
         processor(processor_),
         NUM_LEDS_X(NUM_LEDS_X_), NUM_LEDS_Y(NUM_LEDS_Y_),
