@@ -15,10 +15,19 @@
 #include <X11/extensions/XShm.h>
 #include <stdbool.h>
 
+#include <chrono>
+#include <thread>
+
 #include <vector>
 
 #include <exception>
 #include <system_error>
+
+#include <cmath>
+
+#include <iostream>
+
+using hrc = std::chrono::high_resolution_clock;
 
 #define NUM_LEDS_WIDTH 32
 #define NUM_LEDS_HEIGHT 20
@@ -161,22 +170,36 @@ public:
     }
 };
 
+template<class T>
 struct Color {
-    uint8_t r, g, b, a;
+    T r, g, b, a;
     Color(uint32_t color){
-        a = (color & 0xFF000000) >> 24;
-        r = (color & 0x00FF0000) >> 16;
-        g = (color & 0x0000FF00) >> 8;
-        b = (color & 0x000000FF);
+        a = (uint8_t)((color & 0xFF000000) >> 24);
+        r = (uint8_t)((color & 0x00FF0000) >> 16);
+        g = (uint8_t)((color & 0x0000FF00) >>  8);
+        b = (uint8_t)((color & 0x000000FF)      );
     }
-    Color(uint8_t r_, uint8_t g_, uint8_t b_, uint8_t a_)
+    Color(T r_, T g_, T b_, T a_)
         :r(r_),g(g_),b(b_),a(a_){}
     
-    uint8_t *toArray() const {
-        uint8_t *ret = new uint8_t[3];
-        ret[0] = r;
-        ret[1] = g;
-        ret[2] = b;
+    template<class U>
+    Color<T> weightedAverage(const Color<U> &c, const float &w){
+        float rf = float(r)*(1.0f-w) + float(c.r)*w;
+        float gf = float(g)*(1.0f-w) + float(c.g)*w;
+        float bf = float(b)*(1.0f-w) + float(c.b)*w;
+        float af = float(a)*(1.0f-w) + float(c.a)*w;
+
+        rf = std::min(std::max(rf, 0.0f), 255.0f);
+        gf = std::min(std::max(gf, 0.0f), 255.0f);
+        bf = std::min(std::max(bf, 0.0f), 255.0f);
+        af = std::min(std::max(af, 0.0f), 255.0f);
+        Color<T> ret(
+            (T)rf,            
+            (T)gf,
+            (T)bf,
+            (T)af
+        );
+
         return ret;
     }
 };
@@ -204,7 +227,7 @@ public:
     int getWidth (){ return reader.getScreenWidth (); }
     int getHeight(){ return reader.getScreenHeight(); }
 
-    Color getColor(const int x, const int y){
+    Color<uint8_t> getColor(const int x, const int y){
         int r = 0, g = 0, b = 0, a = 0;
         size_t n = 0;
         for(int deltaX = -colorWidth/2; deltaX < colorWidth/2; ++deltaX){
@@ -215,7 +238,7 @@ public:
                     0 <= xPixel && xPixel < screenWidth  &&
                     0 <= yPixel && yPixel < screenHeight
                 ) {
-                    Color c = reader.getPixel(xPixel, yPixel);
+                    Color<uint8_t> c = reader.getPixel(xPixel, yPixel);
                     r += c.r;
                     g += c.g;
                     b += c.b;
@@ -228,7 +251,7 @@ public:
         g /= n;
         b /= n;
         a /= n;
-        return Color(r, g, b, a);
+        return Color<uint8_t>(r, g, b, a);
     }
 
     void update(){
@@ -240,12 +263,13 @@ class LedProcessor {
     ScreenProcessor &processor;
     const int NUM_LEDS_X;
     const int NUM_LEDS_Y;
+    const float SCALE_FACTOR;
     const int SIZE_X;
     const int SIZE_Y;
     const int PIXELS_PER_LED_X;
     const int PIXELS_PER_LED_Y;
 
-    std::vector<Color> leds;
+    std::vector<Color<float>> leds;
 
     std::pair<int, int> indexToPixel(int i){
         if(i < 0){
@@ -288,34 +312,50 @@ class LedProcessor {
             throw std::invalid_argument("i must be smaller than 2*NUM_LEDS_WIDTH+2*NUM_LEDS_HEIGHT");
         }
     }
+
+    static constexpr float NANOS_TO_SECONDS = 1.0e-9;
+
+    hrc::time_point prevTimePoint = hrc::now();
+    float getWeight(){
+        hrc::time_point now = hrc::now();
+        
+        const float delta = float(std::chrono::duration_cast<std::chrono::nanoseconds> (now - prevTimePoint).count())*NANOS_TO_SECONDS;
+        const float w = 1-exp(-delta/SCALE_FACTOR);
+        
+        prevTimePoint = now;
+        
+        return w;
+    }
 public:
-    LedProcessor(ScreenProcessor &processor_, const int NUM_LEDS_X_, const int NUM_LEDS_Y_):
+    LedProcessor(ScreenProcessor &processor_, const int NUM_LEDS_X_, const int NUM_LEDS_Y_, const float SCALE_FACTOR_):
         processor(processor_),
         NUM_LEDS_X(NUM_LEDS_X_), NUM_LEDS_Y(NUM_LEDS_Y_),
+        SCALE_FACTOR(SCALE_FACTOR_),
         SIZE_X(processor.getWidth ()),
         SIZE_Y(processor.getHeight()),
         PIXELS_PER_LED_X(processor.getWidth () / NUM_LEDS_X),
         PIXELS_PER_LED_Y(processor.getHeight() / NUM_LEDS_Y),
-        leds(2*NUM_LEDS_X_+2*NUM_LEDS_Y_, Color(0))
+        leds(2*NUM_LEDS_X_+2*NUM_LEDS_Y_, Color<float>(0))
     {
     }
 
     void update(){
         processor.update();
+        const float w = getWeight();
         for(size_t i = 0; i < leds.size(); ++i){
             const std::pair<int,int> pos = indexToPixel(i);
             const int &x = pos.first;
             const int &y = pos.second;
-            leds[i] = processor.getColor(x, y);
+            leds[i] = leds[i].weightedAverage(processor.getColor(x, y), w);
         }
     }
 
     size_t copy(uint8_t *dest){
         for(size_t i = 0; i < leds.size(); ++i){
-            const Color &c = leds[i];
-            *(dest++) = c.r;
-            *(dest++) = c.g;
-            *(dest++) = c.b;
+            const Color<float> &c = leds[i];
+            *(dest++) = (uint8_t)c.r;
+            *(dest++) = (uint8_t)c.g;
+            *(dest++) = (uint8_t)c.b;
         }
         return 3*leds.size();
     }
@@ -442,7 +482,8 @@ int main()
         PIXELS_PER_LED_AVG_Y
     );
 
-    LedProcessor ledProcessor(screenProcessor, NUM_LEDS_WIDTH, NUM_LEDS_HEIGHT);
+    const float SCALE_FACTOR = 1;
+    LedProcessor ledProcessor(screenProcessor, NUM_LEDS_WIDTH, NUM_LEDS_HEIGHT, SCALE_FACTOR);
 
     while (true)
     {
@@ -455,7 +496,7 @@ int main()
             printf("Error writting to shared memory");
         }
 
-        sleep(0.05);
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
 
     if(closeAndDeleteShm()) return 1;
