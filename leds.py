@@ -87,6 +87,7 @@ def colorFromHex(hex : str) -> Color:
     return Color(*tuple(int(hex[i:i+2], 16) for i in (0, 2, 4)))
 
 def main():
+    USE_LEDS = True
 
     # Hardcoded
     shm_name = "/shm_leds"
@@ -97,10 +98,12 @@ def main():
     sem = posix_ipc.Semaphore(sem_name)
 
     # Create NeoPixel object with appropriate configuration.
-    strip = PixelStrip(LED_COUNT, LED_PIN, LED_FREQ_HZ, LED_DMA, LED_INVERT, LED_BRIGHTNESS, LED_CHANNEL)
-    # Intialize the library (must be called once before other functions).
-    strip.begin()
-    print('[LEDS] Press Ctrl-C to quit.')
+    if USE_LEDS:
+        strip = PixelStrip(LED_COUNT, LED_PIN, LED_FREQ_HZ, LED_DMA, LED_INVERT, LED_BRIGHTNESS, LED_CHANNEL)
+        # Intialize the library (must be called once before other functions).
+        strip.begin()
+        print('[LEDS] Press Ctrl-C to quit.')
+    
 
     try:
         while True:
@@ -113,9 +116,11 @@ def main():
                 colors.append(colorFromHex(colorHex))
             sem.release()
             
-            for index, color in enumerate(colors):
-                strip.setPixelColor(index, color)
-            strip.show()
+            if USE_LEDS:
+                for index, color in enumerate(colors):
+                    strip.setPixelColor(index, color)
+                strip.show()
+
             time.sleep(0.1)
 
             # print('Color wipe animations.')
