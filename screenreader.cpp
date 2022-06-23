@@ -26,7 +26,7 @@ const int NUM_LEDS_TOTAL = 2 * (NUM_LEDS_WIDTH + NUM_LEDS_HEIGHT);
 
 struct shmimage {
     XShmSegmentInfo shminfo;
-    XImage *ximage;
+    XImage *ximage = nullptr;
     unsigned int *data; // will point to the image's BGRA packed pixels
     Display *dsp;
 
@@ -53,14 +53,12 @@ private:
 public:
 
     shmimage(){
-        ximage = NULL;
         shminfo.shmaddr = (char *)-1;
 
         initDisplay();
 
-        int screen = XDefaultScreen(dsp);
-        int width  = XDisplayWidth (dsp, screen),
-            height = XDisplayHeight(dsp, screen);
+        int width  = getWidth ();
+        int height = getHeight();
 
         // Create a shared memory area
         shminfo.shmid = shmget(IPC_PRIVATE, width * height * BPP, IPC_CREAT | 0600);
@@ -112,16 +110,16 @@ public:
         XSync(dsp, false);
     }
 
-    void getrootwindow(){
+    int getWidth (){ return XDisplayWidth (dsp, XDefaultScreen(dsp)); }
+    int getHeight(){ return XDisplayHeight(dsp, XDefaultScreen(dsp)); }
+
+    void update(){
         XShmGetImage(dsp, XDefaultRootWindow(dsp), ximage, 0, 0, AllPlanes);
-        // This is how you access the image's BGRA packed pixels
-        // Lets set the alpha channel of each pixel to 0xff
-        int x, y;
-        unsigned int *p = data;
-        for (y = 0; y < ximage->height; ++y){
-            for (x = 0; x < ximage->width; ++x){
-                *p++ |= 0xff000000;
-            }
+        
+        // Set alpha channel to 0xff
+        uint32_t *p = data;
+        for (int i = 0; i < ximage->height * ximage->width; ++i){
+            *p++ |= 0xff000000;
         }
     }
 
@@ -364,13 +362,13 @@ int main()
 
     shmimage image;
 
-    int pixels_per_led_height = image.ximage->height / NUM_LEDS_HEIGHT;
-    int pixels_per_led_width = image.ximage->width / NUM_LEDS_WIDTH;
+    int pixels_per_led_height = image.getHeight() / NUM_LEDS_HEIGHT;
+    int pixels_per_led_width = image.getWidth() / NUM_LEDS_WIDTH;
     while (true)
     {
-        image.getrootwindow();
+        image.update();
 
-        u_int8_t **leds = pixelsToLeds(image.data, pixels_per_led_height, pixels_per_led_width, image.ximage->height, image.ximage->width);
+        u_int8_t **leds = pixelsToLeds(image.data, pixels_per_led_height, pixels_per_led_width, image.getHeight(), image.getWidth());
         if (writeToShm(leds) == 0){
             ledPrint(leds);
         }
