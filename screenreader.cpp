@@ -51,8 +51,8 @@ private:
     }
 
     void initShm(){
-        int width  = getWidth ();
-        int height = getHeight();
+        int width  = getScreenWidth ();
+        int height = getScreenHeight();
 
         // Create a shared memory area
         shminfo.shmid = shmget(IPC_PRIVATE, width * height * BPP, IPC_CREAT | 0600);
@@ -109,8 +109,8 @@ private:
         }
 
         ximage->data = (char *)data;
-        ximage->width = getWidth();
-        ximage->height = getHeight();
+        ximage->width  = getScreenWidth ();
+        ximage->height = getScreenHeight();
     }
 
 public:
@@ -122,8 +122,8 @@ public:
         initXImage();
     }
 
-    int getWidth (){ return XDisplayWidth (dsp, XDefaultScreen(dsp)); }
-    int getHeight(){ return XDisplayHeight(dsp, XDefaultScreen(dsp)); }
+    int getScreenWidth (){ return XDisplayWidth (dsp, XDefaultScreen(dsp)); }
+    int getScreenHeight(){ return XDisplayHeight(dsp, XDefaultScreen(dsp)); }
 
     void update(){
         XShmGetImage(dsp, XDefaultRootWindow(dsp), ximage, 0, 0, AllPlanes);
@@ -173,8 +173,12 @@ u_int8_t *averageRGB(int total_r, int total_g, int total_b, int pixels_per_led_w
     return led;
 }
 
-u_int8_t **pixelsToLeds(unsigned int *pixels, int pixels_per_led_height, int pixels_per_led_width, int screen_height, int screen_width)
+u_int8_t **pixelsToLeds(shmimage &image, int pixels_per_led_height, int pixels_per_led_width)
 {
+    unsigned int *pixels = image.data;
+    const int screen_width  = image.getScreenWidth();
+    const int screen_height = image.getScreenHeight();
+
     u_int8_t **leds = (u_int8_t **)malloc((NUM_LEDS_HEIGHT * 2 + NUM_LEDS_WIDTH * 2) * sizeof(u_int8_t *));
     for (int led_y = 0; led_y < NUM_LEDS_HEIGHT; led_y++)
     {
@@ -374,13 +378,13 @@ int main()
 
     shmimage image;
 
-    int pixels_per_led_height = image.getHeight() / NUM_LEDS_HEIGHT;
-    int pixels_per_led_width = image.getWidth() / NUM_LEDS_WIDTH;
+    int pixels_per_led_height = image.getScreenHeight() / NUM_LEDS_HEIGHT;
+    int pixels_per_led_width  = image.getScreenWidth () / NUM_LEDS_WIDTH;
     while (true)
     {
         image.update();
 
-        u_int8_t **leds = pixelsToLeds(image.data, pixels_per_led_height, pixels_per_led_width, image.getHeight(), image.getWidth());
+        u_int8_t **leds = pixelsToLeds(image, pixels_per_led_height, pixels_per_led_width);
         if (writeToShm(leds) == 0){
             ledPrint(leds);
         }
