@@ -29,6 +29,7 @@ struct shmimage {
     XImage *ximage = nullptr;
     unsigned int *data; // will point to the image's BGRA packed pixels
     Display *dsp;
+    int screenWidth, screenHeight;
 
 private:
     void initDisplay(){
@@ -122,8 +123,8 @@ public:
         initXImage();
     }
 
-    int getScreenWidth (){ return XDisplayWidth (dsp, XDefaultScreen(dsp)); }
-    int getScreenHeight(){ return XDisplayHeight(dsp, XDefaultScreen(dsp)); }
+    int getScreenWidth (){ return screenWidth  = XDisplayWidth (dsp, XDefaultScreen(dsp)); }
+    int getScreenHeight(){ return screenHeight = XDisplayHeight(dsp, XDefaultScreen(dsp)); }
 
     void update(){
         XShmGetImage(dsp, XDefaultRootWindow(dsp), ximage, 0, 0, AllPlanes);
@@ -133,6 +134,10 @@ public:
         for (int i = 0; i < ximage->height * ximage->width; ++i){
             *p++ |= 0xff000000;
         }
+    }
+
+    uint32_t getPixel(int x, int y){
+        return data[y * screenWidth + x];
     }
 
     ~shmimage(){
@@ -175,7 +180,6 @@ u_int8_t *averageRGB(int total_r, int total_g, int total_b, int pixels_per_led_w
 
 u_int8_t **pixelsToLeds(shmimage &image, int pixels_per_led_height, int pixels_per_led_width)
 {
-    unsigned int *pixels = image.data;
     const int screen_width  = image.getScreenWidth();
     const int screen_height = image.getScreenHeight();
 
@@ -193,7 +197,7 @@ u_int8_t **pixelsToLeds(shmimage &image, int pixels_per_led_height, int pixels_p
                     for (int pixel_x = pixels_per_led_width * led_x; pixel_x < pixels_per_led_width * (led_x + 1); pixel_x++)
                     {
                         u_int8_t r, g, b;
-                        convertRGB(pixels[pixel_y * screen_width + pixel_x], &r, &g, &b);
+                        convertRGB(image.getPixel(pixel_x, pixel_y), &r, &g, &b);
                         total_r += r;
                         total_g += g;
                         total_b += b;
@@ -213,7 +217,7 @@ u_int8_t **pixelsToLeds(shmimage &image, int pixels_per_led_height, int pixels_p
                     for (int pixel_x = pixels_per_led_width * led_x; pixel_x < pixels_per_led_width * (led_x + 1); pixel_x++)
                     {
                         u_int8_t r, g, b;
-                        convertRGB(pixels[pixel_y * screen_width + pixel_x], &r, &g, &b);
+                        convertRGB(image.getPixel(pixel_x, pixel_y), &r, &g, &b);
                         total_r += r;
                         total_g += g;
                         total_b += b;
@@ -230,7 +234,7 @@ u_int8_t **pixelsToLeds(shmimage &image, int pixels_per_led_height, int pixels_p
             for (int pixel_x = screen_width - pixels_per_led_width; pixel_x < screen_width; pixel_x++)
             {
                 u_int8_t r, g, b;
-                convertRGB(pixels[pixel_y * screen_width + pixel_x], &r, &g, &b);
+                convertRGB(image.getPixel(pixel_x, pixel_y), &r, &g, &b);
                 total_r += r;
                 total_g += g;
                 total_b += b;
@@ -245,7 +249,7 @@ u_int8_t **pixelsToLeds(shmimage &image, int pixels_per_led_height, int pixels_p
             for (int pixel_x = 0; pixel_x < pixels_per_led_width; pixel_x++)
             {
                 u_int8_t r, g, b;
-                convertRGB(pixels[pixel_y * screen_width + pixel_x], &r, &g, &b);
+                convertRGB(image.getPixel(pixel_x, pixel_y), &r, &g, &b);
                 total_r += r;
                 total_g += g;
                 total_b += b;
