@@ -482,7 +482,7 @@ int main()
         PIXELS_PER_LED_AVG_Y
     );
 
-    const float SCALE_FACTOR = 1;
+    const float SCALE_FACTOR = 0.05;
     LedProcessor ledProcessor(screenProcessor, NUM_LEDS_WIDTH, NUM_LEDS_HEIGHT, SCALE_FACTOR);
 
     while (true)
@@ -496,7 +496,7 @@ int main()
             printf("Error writting to shared memory");
         }
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        //std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
 
     if(closeAndDeleteShm()) return 1;

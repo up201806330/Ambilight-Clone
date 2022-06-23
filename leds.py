@@ -123,7 +123,7 @@ def main():
             else:
                 print(colors)
 
-            time.sleep(0.01)
+            #time.sleep(0.01)
 
             # print('Color wipe animations.')
             # colorWipe(strip, Color(255, 0, 0))  # Red wipe
