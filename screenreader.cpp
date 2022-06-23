@@ -21,6 +21,7 @@
 #define NUM_LEDS_WIDTH 32
 #define NUM_LEDS_HEIGHT 20
 #define BPP 4
+#define LED_PIXELS_COMPENSATION 15
 
 const int NUM_LEDS_TOTAL = 2 * (NUM_LEDS_WIDTH + NUM_LEDS_HEIGHT);
 
@@ -258,10 +259,10 @@ u_int8_t **pixelsToLeds(ScreenReader &screen)
             for (int led_x = 0; led_x < NUM_LEDS_WIDTH; led_x++)
             {
                 int pixel_x = pixels_per_led_width * led_x + pixels_per_led_width/2;
-                int pixel_y = pixels_per_led_height/2;
+                int pixel_y = screen_height - pixels_per_led_height/2;
 
                 Color total_c = processor.getColor(pixel_x, pixel_y);
-                leds[led_x] = total_c.toArray();
+                leds[NUM_LEDS_WIDTH - 1 - led_x] = total_c.toArray();
             }
         }
         // Top part of the led strip
@@ -270,57 +271,64 @@ u_int8_t **pixelsToLeds(ScreenReader &screen)
             for (int led_x = 0; led_x < NUM_LEDS_WIDTH; led_x++)
             {
                 int pixel_x = pixels_per_led_width * led_x + pixels_per_led_width/2;
-                int pixel_y = screen_height - pixels_per_led_height/2;
+                int pixel_y = pixels_per_led_height/2;
 
                 Color total_c = processor.getColor(pixel_x, pixel_y);
-                leds[NUM_LEDS_HEIGHT + NUM_LEDS_WIDTH*2 - 1 - led_x] = total_c.toArray();
+                leds[NUM_LEDS_WIDTH + NUM_LEDS_HEIGHT + led_x] = total_c.toArray();
             }
         }
 
         // Left led for y height
         {
-            int pixel_x = screen_width - pixels_per_led_width/2;
-            int pixel_y = led_y * pixels_per_led_height + pixels_per_led_height/2;
-
-            Color total_c = processor.getColor(pixel_x, pixel_y);
-            leds[NUM_LEDS_WIDTH + led_y] = total_c.toArray();
-        }
-
-        // Right led for y height
-        {
             int pixel_x = pixels_per_led_width/2;
             int pixel_y = led_y * pixels_per_led_height + pixels_per_led_height/2;
 
             Color total_c = processor.getColor(pixel_x, pixel_y);
-            leds[NUM_LEDS_WIDTH*2 + NUM_LEDS_HEIGHT*2 - 1 - led_y] = total_c.toArray();
+            leds[NUM_LEDS_WIDTH + NUM_LEDS_HEIGHT - 1 - led_y] = total_c.toArray();
+        }
+
+        // Right led for y height
+        {
+            int pixel_x = screen_width - pixels_per_led_width/2;
+            int pixel_y = led_y * pixels_per_led_height + pixels_per_led_height/2;
+
+            Color total_c = processor.getColor(pixel_x, pixel_y);
+            leds[NUM_LEDS_WIDTH*2 + NUM_LEDS_HEIGHT + led_y] = total_c.toArray();
         }
     }
     return leds;
 }
 
 void ledPrint(u_int8_t **leds){
+    int i = 0;
     int range = NUM_LEDS_WIDTH;
-    for (int i = 0; i < range; i++)
+    printf("Bottom: ");
+    for (; i < range; i++)
     {
         printf("%02x%02x%02x ", leds[i][0], leds[i][1], leds[i][2]);
     }
     printf("\n");
 
-    for (int i = range; i < range + NUM_LEDS_HEIGHT; i++)
+    printf("Left   :");
+    range += NUM_LEDS_HEIGHT;
+    for (; i < range; i++)
     {
         printf("%02x%02x%02x ", leds[i][0], leds[i][1], leds[i][2]);
     }
     printf("\n");
-    range = range + NUM_LEDS_HEIGHT;
+    
 
-    for (int i = range; i < range + NUM_LEDS_WIDTH; i++)
+    printf("Top    :");
+    range += NUM_LEDS_WIDTH;
+    for (; i < range; i++)
     {
         printf("%02x%02x%02x ", leds[i][0], leds[i][1], leds[i][2]);
     }
     printf("\n");
-    range = range + NUM_LEDS_WIDTH;
 
-    for (int i = range; i < range + NUM_LEDS_HEIGHT; i++)
+    printf("Right  :");
+    range += NUM_LEDS_HEIGHT;
+    for (; i < range; i++)
     {
         printf("%02x%02x%02x ", leds[i][0], leds[i][1], leds[i][2]);
     }
