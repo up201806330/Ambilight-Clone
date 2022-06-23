@@ -251,51 +251,51 @@ u_int8_t **pixelsToLeds(ScreenReader &screen)
     );
 
     u_int8_t **leds = (u_int8_t **)malloc((NUM_LEDS_HEIGHT * 2 + NUM_LEDS_WIDTH * 2) * sizeof(u_int8_t *));
-    for (int led_y = 0; led_y < NUM_LEDS_HEIGHT; led_y++)
-    {
-        // Bottom of the led strip
-        if (led_y == NUM_LEDS_HEIGHT - 1)
-        {
-            for (int led_x = 0; led_x < NUM_LEDS_WIDTH; led_x++)
-            {
-                int pixel_x = pixels_per_led_width * led_x + pixels_per_led_width/2;
-                int pixel_y = screen_height - pixels_per_led_height/2;
 
-                Color total_c = processor.getColor(pixel_x, pixel_y);
-                leds[NUM_LEDS_WIDTH - 1 - led_x] = total_c.toArray();
-            }
-        }
-        // Top part of the led strip
-        else if (led_y == 0)
-        {
-            for (int led_x = 0; led_x < NUM_LEDS_WIDTH; led_x++)
-            {
-                int pixel_x = pixels_per_led_width * led_x + pixels_per_led_width/2;
-                int pixel_y = pixels_per_led_height/2;
+    // Bottom of the led strip
+    for(int i = 0; i < NUM_LEDS_WIDTH; ++i){
+        int led_x = NUM_LEDS_WIDTH - 1 - i;
 
-                Color total_c = processor.getColor(pixel_x, pixel_y);
-                leds[NUM_LEDS_WIDTH + NUM_LEDS_HEIGHT + led_x] = total_c.toArray();
-            }
-        }
+        int pixel_x = pixels_per_led_width * led_x + pixels_per_led_width/2;
+        int pixel_y = screen_height - pixels_per_led_height/2;
 
-        // Left led for y height
-        {
-            int pixel_x = pixels_per_led_width/2;
-            int pixel_y = led_y * pixels_per_led_height + pixels_per_led_height/2;
-
-            Color total_c = processor.getColor(pixel_x, pixel_y);
-            leds[NUM_LEDS_WIDTH + NUM_LEDS_HEIGHT - 1 - led_y] = total_c.toArray();
-        }
-
-        // Right led for y height
-        {
-            int pixel_x = screen_width - pixels_per_led_width/2;
-            int pixel_y = led_y * pixels_per_led_height + pixels_per_led_height/2;
-
-            Color total_c = processor.getColor(pixel_x, pixel_y);
-            leds[NUM_LEDS_WIDTH*2 + NUM_LEDS_HEIGHT + led_y] = total_c.toArray();
-        }
+        Color total_c = processor.getColor(pixel_x, pixel_y);
+        leds[i] = total_c.toArray();
     }
+
+    // Left led for y height
+    for(int i = NUM_LEDS_WIDTH; i < NUM_LEDS_WIDTH+NUM_LEDS_HEIGHT; ++i){
+        int led_y = NUM_LEDS_WIDTH + NUM_LEDS_HEIGHT - 1 - i;
+
+        int pixel_x = pixels_per_led_width/2;
+        int pixel_y = led_y * pixels_per_led_height + pixels_per_led_height/2;
+
+        Color total_c = processor.getColor(pixel_x, pixel_y);
+        leds[i] = total_c.toArray();
+    }
+
+    // Top part of the led strip
+    for (int i = NUM_LEDS_WIDTH+NUM_LEDS_HEIGHT; i < 2*NUM_LEDS_WIDTH+NUM_LEDS_HEIGHT; i++){
+        int led_x = i - NUM_LEDS_WIDTH - NUM_LEDS_HEIGHT;
+
+        int pixel_x = pixels_per_led_width * led_x + pixels_per_led_width/2;
+        int pixel_y = pixels_per_led_height/2;
+
+        Color total_c = processor.getColor(pixel_x, pixel_y);
+        leds[i] = total_c.toArray();
+    }
+
+    // Right led for y height
+    for(int i = 2*NUM_LEDS_WIDTH+NUM_LEDS_HEIGHT; i < 2*NUM_LEDS_WIDTH+2*NUM_LEDS_HEIGHT; ++i){
+        int led_y = i - NUM_LEDS_WIDTH*2 - NUM_LEDS_HEIGHT;
+
+        int pixel_x = screen_width - pixels_per_led_width/2;
+        int pixel_y = led_y * pixels_per_led_height + pixels_per_led_height/2;
+
+        Color total_c = processor.getColor(pixel_x, pixel_y);
+        leds[i] = total_c.toArray();
+    }
+
     return leds;
 }
 
