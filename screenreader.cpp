@@ -50,13 +50,7 @@ private:
         }
     }
 
-public:
-
-    shmimage(){
-        shminfo.shmaddr = (char *)-1;
-
-        initDisplay();
-
+    void initShm(){
         int width  = getWidth ();
         int height = getHeight();
 
@@ -85,21 +79,6 @@ public:
         // It will be removed even if this program crashes
         shmctl(shminfo.shmid, IPC_RMID, 0);
 
-        // Allocate the memory needed for the XImage structure
-        ximage = XShmCreateImage(dsp, XDefaultVisual(dsp, XDefaultScreen(dsp)),
-                                        DefaultDepth(dsp, XDefaultScreen(dsp)), ZPixmap, NULL,
-                                        &shminfo, 0, 0);
-        if (!ximage){
-            throw std::system_error(
-                std::error_code(errno, std::system_category()),
-                "Could not allocate the XImage structure"
-            );
-        }
-
-        ximage->data = (char *)data;
-        ximage->width = width;
-        ximage->height = height;
-
         // Ask the X server to attach the shared memory segment and sync
         if (XShmAttach(dsp, &shminfo) == 0){
              throw std::system_error(
@@ -108,6 +87,39 @@ public:
             );
         }
         XSync(dsp, false);
+    }
+
+    void initXImage(){
+        // Allocate the memory needed for the XImage structure
+        ximage = XShmCreateImage(
+            dsp,
+            XDefaultVisual(dsp, XDefaultScreen(dsp)),
+            DefaultDepth(dsp, XDefaultScreen(dsp)),
+            ZPixmap,
+            NULL,
+            &shminfo,
+            0,
+            0
+        );
+        if (!ximage){
+            throw std::system_error(
+                std::error_code(errno, std::system_category()),
+                "Could not allocate the XImage structure"
+            );
+        }
+
+        ximage->data = (char *)data;
+        ximage->width = getWidth();
+        ximage->height = getHeight();
+    }
+
+public:
+
+    shmimage(){
+        shminfo.shmaddr = (char *)-1;
+        initDisplay();
+        initShm();
+        initXImage();
     }
 
     int getWidth (){ return XDisplayWidth (dsp, XDefaultScreen(dsp)); }
