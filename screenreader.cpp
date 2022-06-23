@@ -178,10 +178,13 @@ u_int8_t *averageRGB(int total_r, int total_g, int total_b, int pixels_per_led_w
     return led;
 }
 
-u_int8_t **pixelsToLeds(ScreenReader &screen, int pixels_per_led_height, int pixels_per_led_width)
+u_int8_t **pixelsToLeds(ScreenReader &screen)
 {
     const int screen_width  = screen.getScreenWidth();
     const int screen_height = screen.getScreenHeight();
+
+    const int pixels_per_led_height = screen.getScreenHeight() / NUM_LEDS_HEIGHT;
+    const int pixels_per_led_width  = screen.getScreenWidth () / NUM_LEDS_WIDTH;
 
     u_int8_t **leds = (u_int8_t **)malloc((NUM_LEDS_HEIGHT * 2 + NUM_LEDS_WIDTH * 2) * sizeof(u_int8_t *));
     for (int led_y = 0; led_y < NUM_LEDS_HEIGHT; led_y++)
@@ -382,13 +385,11 @@ int main()
 
     ScreenReader screen;
 
-    int pixels_per_led_height = screen.getScreenHeight() / NUM_LEDS_HEIGHT;
-    int pixels_per_led_width  = screen.getScreenWidth () / NUM_LEDS_WIDTH;
     while (true)
     {
         screen.update();
 
-        u_int8_t **leds = pixelsToLeds(screen, pixels_per_led_height, pixels_per_led_width);
+        u_int8_t **leds = pixelsToLeds(screen);
         if (writeToShm(leds) == 0){
             ledPrint(leds);
         }
