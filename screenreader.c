@@ -128,6 +128,10 @@ u_int8_t *averageRGB(int total_r, int total_g, int total_b, int pixels_per_led_w
     led[0] = total_r / (pixels_per_led_width * pixels_per_led_height);
     led[1] = total_g / (pixels_per_led_width * pixels_per_led_height);
     led[2] = total_b / (pixels_per_led_width * pixels_per_led_height);
+
+    led[0] = (led[0] > 10 ? led[0] : 0);
+    led[1] = (led[1] > 10 ? led[1] : 0);
+    led[2] = (led[2] > 10 ? led[2] : 0);
     return led;
 }
 

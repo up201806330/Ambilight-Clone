@@ -7,7 +7,7 @@ import posix_ipc
 from rpi_ws281x import Color, PixelStrip
 
 # Parametrizable LED strip configuration:
-NUM_LEDS_WIDTH = 30
+NUM_LEDS_WIDTH = 32
 NUM_LEDS_HEIGHT = 20
 
 # LED strip configuration:
