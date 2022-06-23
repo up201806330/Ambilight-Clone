@@ -15,6 +15,8 @@
 #include <X11/extensions/XShm.h>
 #include <stdbool.h>
 
+#include <vector>
+
 #include <exception>
 #include <system_error>
 
@@ -199,6 +201,9 @@ public:
         screenHeight(reader.getScreenHeight())
     {}
 
+    int getWidth (){ return reader.getScreenWidth (); }
+    int getHeight(){ return reader.getScreenHeight(); }
+
     Color getColor(const int x, const int y){
         int r = 0, g = 0, b = 0, a = 0;
         size_t n = 0;
@@ -225,115 +230,96 @@ public:
         a /= n;
         return Color(r, g, b, a);
     }
+
+    void update(){
+        reader.update();
+    }
 };
 
-u_int8_t *averageRGB(int total_r, int total_g, int total_b, int pixels_per_led_width, int pixels_per_led_height)
-{
-    u_int8_t *led = (u_int8_t *)malloc(3 * sizeof(u_int8_t));
-    led[0] = total_r / (pixels_per_led_width * pixels_per_led_height);
-    led[1] = total_g / (pixels_per_led_width * pixels_per_led_height);
-    led[2] = total_b / (pixels_per_led_width * pixels_per_led_height);
-    return led;
-}
+class LedProcessor {
+    ScreenProcessor &processor;
+    const int NUM_LEDS_X;
+    const int NUM_LEDS_Y;
+    const int SIZE_X;
+    const int SIZE_Y;
+    const int PIXELS_PER_LED_X;
+    const int PIXELS_PER_LED_Y;
 
-u_int8_t **pixelsToLeds(ScreenReader &screen)
-{
-    const int screen_width  = screen.getScreenWidth();
-    const int screen_height = screen.getScreenHeight();
+    std::vector<Color> leds;
 
-    const int pixels_per_led_height = screen.getScreenHeight() / NUM_LEDS_HEIGHT;
-    const int pixels_per_led_width  = screen.getScreenWidth () / NUM_LEDS_WIDTH;
+    std::pair<int, int> indexToPixel(int i){
+        if(i < 0){
+            throw std::invalid_argument("i must be non-negative");
+        } else if(i < NUM_LEDS_WIDTH){
+            int led_x = NUM_LEDS_WIDTH - 1 - i;
 
-    ScreenProcessor processor(
-        screen,
-        pixels_per_led_width,
-        pixels_per_led_height
-    );
+            int x = PIXELS_PER_LED_X * led_x + PIXELS_PER_LED_X/2;
+            int y = SIZE_Y - PIXELS_PER_LED_Y/2;
 
-    u_int8_t **leds = (u_int8_t **)malloc((NUM_LEDS_HEIGHT * 2 + NUM_LEDS_WIDTH * 2) * sizeof(u_int8_t *));
+            return std::make_pair(x, y);
+        } else if(i < NUM_LEDS_WIDTH+NUM_LEDS_HEIGHT){
+            i -= NUM_LEDS_WIDTH;
 
-    // Bottom of the led strip
-    for(int i = 0; i < NUM_LEDS_WIDTH; ++i){
-        int led_x = NUM_LEDS_WIDTH - 1 - i;
+            int led_y = NUM_LEDS_HEIGHT - 1 - i;
 
-        int pixel_x = pixels_per_led_width * led_x + pixels_per_led_width/2;
-        int pixel_y = screen_height - pixels_per_led_height/2;
+            int x = PIXELS_PER_LED_X/2;
+            int y = led_y * PIXELS_PER_LED_Y + PIXELS_PER_LED_Y/2;
 
-        Color total_c = processor.getColor(pixel_x, pixel_y);
-        leds[i] = total_c.toArray();
+            return std::make_pair(x, y);
+        } else if(i < 2*NUM_LEDS_WIDTH+NUM_LEDS_HEIGHT){
+            i -= NUM_LEDS_WIDTH+NUM_LEDS_HEIGHT;
+
+            int led_x = i;
+
+            int x = PIXELS_PER_LED_X * led_x + PIXELS_PER_LED_X/2;
+            int y = PIXELS_PER_LED_Y/2;
+
+            return std::make_pair(x, y);
+        } else if(i < 2*NUM_LEDS_WIDTH+2*NUM_LEDS_HEIGHT){
+            i -= 2*NUM_LEDS_WIDTH+NUM_LEDS_HEIGHT;
+
+            int led_y = i;
+
+            int x = SIZE_X - PIXELS_PER_LED_X/2;
+            int y = led_y * PIXELS_PER_LED_Y + PIXELS_PER_LED_Y/2;
+
+            return std::make_pair(x, y);
+        } else {
+            throw std::invalid_argument("i must be smaller than 2*NUM_LEDS_WIDTH+2*NUM_LEDS_HEIGHT");
+        }
     }
-
-    // Left led for y height
-    for(int i = NUM_LEDS_WIDTH; i < NUM_LEDS_WIDTH+NUM_LEDS_HEIGHT; ++i){
-        int led_y = NUM_LEDS_WIDTH + NUM_LEDS_HEIGHT - 1 - i;
-
-        int pixel_x = pixels_per_led_width/2;
-        int pixel_y = led_y * pixels_per_led_height + pixels_per_led_height/2;
-
-        Color total_c = processor.getColor(pixel_x, pixel_y);
-        leds[i] = total_c.toArray();
-    }
-
-    // Top part of the led strip
-    for (int i = NUM_LEDS_WIDTH+NUM_LEDS_HEIGHT; i < 2*NUM_LEDS_WIDTH+NUM_LEDS_HEIGHT; i++){
-        int led_x = i - NUM_LEDS_WIDTH - NUM_LEDS_HEIGHT;
-
-        int pixel_x = pixels_per_led_width * led_x + pixels_per_led_width/2;
-        int pixel_y = pixels_per_led_height/2;
-
-        Color total_c = processor.getColor(pixel_x, pixel_y);
-        leds[i] = total_c.toArray();
-    }
-
-    // Right led for y height
-    for(int i = 2*NUM_LEDS_WIDTH+NUM_LEDS_HEIGHT; i < 2*NUM_LEDS_WIDTH+2*NUM_LEDS_HEIGHT; ++i){
-        int led_y = i - NUM_LEDS_WIDTH*2 - NUM_LEDS_HEIGHT;
-
-        int pixel_x = screen_width - pixels_per_led_width/2;
-        int pixel_y = led_y * pixels_per_led_height + pixels_per_led_height/2;
-
-        Color total_c = processor.getColor(pixel_x, pixel_y);
-        leds[i] = total_c.toArray();
-    }
-
-    return leds;
-}
-
-void ledPrint(u_int8_t **leds){
-    int i = 0;
-    int range = NUM_LEDS_WIDTH;
-    printf("Bottom: ");
-    for (; i < range; i++)
+public:
+    LedProcessor(ScreenProcessor &processor_, const int NUM_LEDS_X_, const int NUM_LEDS_Y_):
+        processor(processor_),
+        NUM_LEDS_X(NUM_LEDS_X_), NUM_LEDS_Y(NUM_LEDS_Y_),
+        SIZE_X(processor.getWidth ()),
+        SIZE_Y(processor.getHeight()),
+        PIXELS_PER_LED_X(processor.getWidth () / NUM_LEDS_X),
+        PIXELS_PER_LED_Y(processor.getHeight() / NUM_LEDS_Y),
+        leds(2*NUM_LEDS_X_+2*NUM_LEDS_Y_, Color(0))
     {
-        printf("%02x%02x%02x ", leds[i][0], leds[i][1], leds[i][2]);
     }
-    printf("\n");
 
-    printf("Left   :");
-    range += NUM_LEDS_HEIGHT;
-    for (; i < range; i++)
-    {
-        printf("%02x%02x%02x ", leds[i][0], leds[i][1], leds[i][2]);
+    void update(){
+        processor.update();
+        for(size_t i = 0; i < leds.size(); ++i){
+            const std::pair<int,int> pos = indexToPixel(i);
+            const int &x = pos.first;
+            const int &y = pos.second;
+            leds[i] = processor.getColor(x, y);
+        }
     }
-    printf("\n");
-    
 
-    printf("Top    :");
-    range += NUM_LEDS_WIDTH;
-    for (; i < range; i++)
-    {
-        printf("%02x%02x%02x ", leds[i][0], leds[i][1], leds[i][2]);
+    size_t copy(uint8_t *dest){
+        for(size_t i = 0; i < leds.size(); ++i){
+            const Color &c = leds[i];
+            *(dest++) = c.r;
+            *(dest++) = c.g;
+            *(dest++) = c.b;
+        }
+        return 3*leds.size();
     }
-    printf("\n");
-
-    printf("Right  :");
-    range += NUM_LEDS_HEIGHT;
-    for (; i < range; i++)
-    {
-        printf("%02x%02x%02x ", leds[i][0], leds[i][1], leds[i][2]);
-    }
-    printf("\n\n");
-}
+};
 
 const char SHM_NAME[] = "/shm_leds";
 const char SEM_NAME[] = "/sem_leds";
@@ -383,19 +369,39 @@ int closeAndDeleteShm(){
 
 // Flatten array of LED color components
 // and write to shared memory
-int writeToShm(u_int8_t **leds){
+int writeToShm(LedProcessor &ledProcessor){
     sem_wait(sem);
 
     uint8_t *shm_leds = (uint8_t*)shm;
-    int idx = 0;
-    for(int i = 0; i < NUM_LEDS_TOTAL; ++i){
-        for(int j = 0; j < 3; ++j){
-            shm_leds[idx++] = leds[i][j];
-        }
-    }
+    ledProcessor.copy(shm_leds);
 
     sem_post(sem);
     return 0;
+}
+
+void ledPrint(){
+    uint8_t *leds = (uint8_t*)shm;
+
+    int i = 0;
+    int range = NUM_LEDS_WIDTH;
+    printf("Bottom: ");
+    for (; i < range; i++) printf("%02x%02x%02x ", leds[3*i], leds[3*i+1], leds[3*i+2]);
+    printf("\n");
+
+    printf("Left   :");
+    range += NUM_LEDS_HEIGHT;
+    for (; i < range; i++) printf("%02x%02x%02x ", leds[3*i], leds[3*i+1], leds[3*i+2]);
+    printf("\n");
+
+    printf("Top    :");
+    range += NUM_LEDS_WIDTH;
+    for (; i < range; i++) printf("%02x%02x%02x ", leds[3*i], leds[3*i+1], leds[3*i+2]);
+    printf("\n");
+
+    printf("Right  :");
+    range += NUM_LEDS_HEIGHT;
+    for (; i < range; i++) printf("%02x%02x%02x ", leds[3*i], leds[3*i+1], leds[3*i+2]);
+    printf("\n\n");
 }
 
 pid_t pid;
@@ -428,19 +434,27 @@ int main()
 
     ScreenReader screen;
 
+    const int PIXELS_PER_LED_AVG_X = screen.getScreenWidth () / NUM_LEDS_WIDTH;
+    const int PIXELS_PER_LED_AVG_Y = screen.getScreenHeight() / NUM_LEDS_HEIGHT;
+    ScreenProcessor screenProcessor(
+        screen,
+        PIXELS_PER_LED_AVG_X,
+        PIXELS_PER_LED_AVG_Y
+    );
+
+    LedProcessor ledProcessor(screenProcessor, NUM_LEDS_WIDTH, NUM_LEDS_HEIGHT);
+
     while (true)
     {
-        screen.update();
+        ledProcessor.update();
 
-        u_int8_t **leds = pixelsToLeds(screen);
-        if (writeToShm(leds) == 0){
-            ledPrint(leds);
+        if (writeToShm(ledProcessor) == 0){
+            ledPrint();
         }
         else {
             printf("Error writting to shared memory");
         }
 
-        // free(leds);
         sleep(0.05);
     }
 
