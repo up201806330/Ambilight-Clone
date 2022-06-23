@@ -15,6 +15,9 @@
 #include <X11/extensions/XShm.h>
 #include <stdbool.h>
 
+#include <exception>
+#include <system_error>
+
 #define NUM_LEDS_WIDTH 32
 #define NUM_LEDS_HEIGHT 20
 #define BPP 4
@@ -27,24 +30,54 @@ struct shmimage {
     unsigned int *data; // will point to the image's BGRA packed pixels
     Display *dsp;
 
-    shmimage(Display *dsp_):dsp(dsp_){
-        ximage = NULL;
-        shminfo.shmaddr = (char *)-1;
+private:
+    void initDisplay(){
+        dsp = XOpenDisplay(NULL);
+        if (!dsp){
+            throw std::system_error(
+                std::error_code(errno, std::system_category()),
+                "Could not open a connection to the X server"
+            );
+        }
+
+        if (!XShmQueryExtension(dsp)){
+            std::error_code ec(errno, std::system_category());
+            XCloseDisplay(dsp);
+            throw std::system_error(
+                ec,
+                "The X server does not support the XSHM extension\n"
+            );
+        }
     }
 
-    bool create(int width, int height){
+public:
+
+    shmimage(){
+        ximage = NULL;
+        shminfo.shmaddr = (char *)-1;
+
+        initDisplay();
+
+        int screen = XDefaultScreen(dsp);
+        int width  = XDisplayWidth (dsp, screen),
+            height = XDisplayHeight(dsp, screen);
+
         // Create a shared memory area
         shminfo.shmid = shmget(IPC_PRIVATE, width * height * BPP, IPC_CREAT | 0600);
         if (shminfo.shmid == -1){
-            perror("Reading screen");
-            return false;
+            throw std::system_error(
+                std::error_code(errno, std::system_category()),
+                "Reading screen"
+            );
         }
 
         // Map the shared memory segment into the address space of this process
         shminfo.shmaddr = (char *)shmat(shminfo.shmid, 0, 0);
         if (shminfo.shmaddr == (char *)-1){
-            perror("Reading screen");
-            return false;
+            throw std::system_error(
+                std::error_code(errno, std::system_category()),
+                "Reading screen"
+            );
         }
 
         data = (unsigned int *)shminfo.shmaddr;
@@ -59,8 +92,10 @@ struct shmimage {
                                         DefaultDepth(dsp, XDefaultScreen(dsp)), ZPixmap, NULL,
                                         &shminfo, 0, 0);
         if (!ximage){
-            perror("[SCREENREADER] Could not allocate the XImage structure\n");
-            return false;
+            throw std::system_error(
+                std::error_code(errno, std::system_category()),
+                "Could not allocate the XImage structure"
+            );
         }
 
         ximage->data = (char *)data;
@@ -69,11 +104,12 @@ struct shmimage {
 
         // Ask the X server to attach the shared memory segment and sync
         if (XShmAttach(dsp, &shminfo) == 0){
-            perror("[SCREENREADER] Could not attach XImage structure");
-            return false;
+             throw std::system_error(
+                std::error_code(errno, std::system_category()),
+                "Could not attach XImage structure"
+            );
         }
         XSync(dsp, false);
-        return true;
     }
 
     void getrootwindow(){
@@ -99,6 +135,10 @@ struct shmimage {
         if (shminfo.shmaddr != (char *)-1){
             shmdt(shminfo.shmaddr);
             shminfo.shmaddr = (char *)-1;
+        }
+
+        if(dsp){
+            XCloseDisplay(dsp);
         }
     }
 };
@@ -322,27 +362,7 @@ int main()
     //     return ret;
     // }
 
-    Display *dsp = XOpenDisplay(NULL);
-    if (!dsp)
-    {
-        perror("[SCREENREADER] Could not open a connection to the X server\n");
-        return 1;
-    }
-
-    if (!XShmQueryExtension(dsp))
-    {
-        XCloseDisplay(dsp);
-        perror("[SCREENREADER] The X server does not support the XSHM extension\n");
-        return 1;
-    }
-
-    int screen = XDefaultScreen(dsp);
-    shmimage image(dsp);
-    if (!image.create(XDisplayWidth(dsp, screen), XDisplayHeight(dsp, screen)))
-    {
-        XCloseDisplay(dsp);
-        return 1;
-    }
+    shmimage image;
 
     int pixels_per_led_height = image.ximage->height / NUM_LEDS_HEIGHT;
     int pixels_per_led_width = image.ximage->width / NUM_LEDS_WIDTH;
@@ -361,8 +381,6 @@ int main()
         // free(leds);
         sleep(0.05);
     }
-
-    XCloseDisplay(dsp);
 
     if(closeAndDeleteShm()) return 1;
 
