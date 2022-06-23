@@ -21,99 +21,87 @@
 
 const int NUM_LEDS_TOTAL = 2 * (NUM_LEDS_WIDTH + NUM_LEDS_HEIGHT);
 
-struct shmimage
-{
+struct shmimage {
     XShmSegmentInfo shminfo;
     XImage *ximage;
     unsigned int *data; // will point to the image's BGRA packed pixels
-};
+    Display *dsp;
 
-void initimage(struct shmimage *image)
-{
-    image->ximage = NULL;
-    image->shminfo.shmaddr = (char *)-1;
-}
-
-void destroyimage(Display *dsp, struct shmimage *image)
-{
-    if (image->ximage)
-    {
-        XShmDetach(dsp, &image->shminfo);
-        XDestroyImage(image->ximage);
-        image->ximage = NULL;
+    shmimage(Display *dsp_):dsp(dsp_){
+        ximage = NULL;
+        shminfo.shmaddr = (char *)-1;
     }
 
-    if (image->shminfo.shmaddr != (char *)-1)
-    {
-        shmdt(image->shminfo.shmaddr);
-        image->shminfo.shmaddr = (char *)-1;
+    bool create(int width, int height){
+        // Create a shared memory area
+        shminfo.shmid = shmget(IPC_PRIVATE, width * height * BPP, IPC_CREAT | 0600);
+        if (shminfo.shmid == -1){
+            perror("Reading screen");
+            return false;
+        }
+
+        // Map the shared memory segment into the address space of this process
+        shminfo.shmaddr = (char *)shmat(shminfo.shmid, 0, 0);
+        if (shminfo.shmaddr == (char *)-1){
+            perror("Reading screen");
+            return false;
+        }
+
+        data = (unsigned int *)shminfo.shmaddr;
+        shminfo.readOnly = false;
+
+        // Mark the shared memory segment for removal
+        // It will be removed even if this program crashes
+        shmctl(shminfo.shmid, IPC_RMID, 0);
+
+        // Allocate the memory needed for the XImage structure
+        ximage = XShmCreateImage(dsp, XDefaultVisual(dsp, XDefaultScreen(dsp)),
+                                        DefaultDepth(dsp, XDefaultScreen(dsp)), ZPixmap, NULL,
+                                        &shminfo, 0, 0);
+        if (!ximage){
+            perror("[SCREENREADER] Could not allocate the XImage structure\n");
+            return false;
+        }
+
+        ximage->data = (char *)data;
+        ximage->width = width;
+        ximage->height = height;
+
+        // Ask the X server to attach the shared memory segment and sync
+        if (XShmAttach(dsp, &shminfo) == 0){
+            perror("[SCREENREADER] Could not attach XImage structure");
+            return false;
+        }
+        XSync(dsp, false);
+        return true;
     }
-}
 
-int createimage(Display *dsp, struct shmimage *image, int width, int height)
-{
-    // Create a shared memory area
-    image->shminfo.shmid = shmget(IPC_PRIVATE, width * height * BPP, IPC_CREAT | 0600);
-    if (image->shminfo.shmid == -1)
-    {
-        perror("Reading screen");
-        return false;
-    }
-
-    // Map the shared memory segment into the address space of this process
-    image->shminfo.shmaddr = (char *)shmat(image->shminfo.shmid, 0, 0);
-    if (image->shminfo.shmaddr == (char *)-1)
-    {
-        perror("Reading screen");
-        return false;
-    }
-
-    image->data = (unsigned int *)image->shminfo.shmaddr;
-    image->shminfo.readOnly = false;
-
-    // Mark the shared memory segment for removal
-    // It will be removed even if this program crashes
-    shmctl(image->shminfo.shmid, IPC_RMID, 0);
-
-    // Allocate the memory needed for the XImage structure
-    image->ximage = XShmCreateImage(dsp, XDefaultVisual(dsp, XDefaultScreen(dsp)),
-                                    DefaultDepth(dsp, XDefaultScreen(dsp)), ZPixmap, NULL,
-                                    &image->shminfo, 0, 0);
-    if (!image->ximage)
-    {
-        destroyimage(dsp, image);
-        perror("[SCREENREADER] Could not allocate the XImage structure\n");
-        return false;
-    }
-
-    image->ximage->data = (char *)image->data;
-    image->ximage->width = width;
-    image->ximage->height = height;
-
-    // Ask the X server to attach the shared memory segment and sync
-    if (XShmAttach(dsp, &image->shminfo) == 0){
-        perror("[SCREENREADER] Could not attach XImage structure");
-        return false;
-    }
-    XSync(dsp, false);
-    return true;
-}
-
-void getrootwindow(Display *dsp, struct shmimage *image)
-{
-    XShmGetImage(dsp, XDefaultRootWindow(dsp), image->ximage, 0, 0, AllPlanes);
-    // This is how you access the image's BGRA packed pixels
-    // Lets set the alpha channel of each pixel to 0xff
-    int x, y;
-    unsigned int *p = image->data;
-    for (y = 0; y < image->ximage->height; ++y)
-    {
-        for (x = 0; x < image->ximage->width; ++x)
-        {
-            *p++ |= 0xff000000;
+    void getrootwindow(){
+        XShmGetImage(dsp, XDefaultRootWindow(dsp), ximage, 0, 0, AllPlanes);
+        // This is how you access the image's BGRA packed pixels
+        // Lets set the alpha channel of each pixel to 0xff
+        int x, y;
+        unsigned int *p = data;
+        for (y = 0; y < ximage->height; ++y){
+            for (x = 0; x < ximage->width; ++x){
+                *p++ |= 0xff000000;
+            }
         }
     }
-}
+
+    ~shmimage(){
+        if (ximage){
+            XShmDetach(dsp, &shminfo);
+            XDestroyImage(ximage);
+            ximage = NULL;
+        }
+
+        if (shminfo.shmaddr != (char *)-1){
+            shmdt(shminfo.shmaddr);
+            shminfo.shmaddr = (char *)-1;
+        }
+    }
+};
 
 void convertRGB(u_int32_t color, u_int8_t *r, u_int8_t *g, u_int8_t *b)
 {
@@ -349,9 +337,8 @@ int main()
     }
 
     int screen = XDefaultScreen(dsp);
-    struct shmimage image;
-    initimage(&image);
-    if (!createimage(dsp, &image, XDisplayWidth(dsp, screen), XDisplayHeight(dsp, screen)))
+    shmimage image(dsp);
+    if (!image.create(XDisplayWidth(dsp, screen), XDisplayHeight(dsp, screen)))
     {
         XCloseDisplay(dsp);
         return 1;
@@ -361,7 +348,7 @@ int main()
     int pixels_per_led_width = image.ximage->width / NUM_LEDS_WIDTH;
     while (true)
     {
-        getrootwindow(dsp, &image);
+        image.getrootwindow();
 
         u_int8_t **leds = pixelsToLeds(image.data, pixels_per_led_height, pixels_per_led_width, image.ximage->height, image.ximage->width);
         if (writeToShm(leds) == 0){
@@ -374,7 +361,7 @@ int main()
         // free(leds);
         sleep(0.05);
     }
-    destroyimage(dsp, &image);
+
     XCloseDisplay(dsp);
 
     if(closeAndDeleteShm()) return 1;
