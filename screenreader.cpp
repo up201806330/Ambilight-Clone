@@ -24,7 +24,8 @@
 
 const int NUM_LEDS_TOTAL = 2 * (NUM_LEDS_WIDTH + NUM_LEDS_HEIGHT);
 
-struct shmimage {
+class ScreenReader {
+private:
     XShmSegmentInfo shminfo;
     XImage *ximage = nullptr;
     unsigned int *data; // will point to the image's BGRA packed pixels
@@ -115,8 +116,7 @@ private:
     }
 
 public:
-
-    shmimage(){
+    ScreenReader(){
         shminfo.shmaddr = (char *)-1;
         initDisplay();
         initShm();
@@ -140,7 +140,7 @@ public:
         return data[y * screenWidth + x];
     }
 
-    ~shmimage(){
+    ~ScreenReader(){
         if (ximage){
             XShmDetach(dsp, &shminfo);
             XDestroyImage(ximage);
@@ -178,10 +178,10 @@ u_int8_t *averageRGB(int total_r, int total_g, int total_b, int pixels_per_led_w
     return led;
 }
 
-u_int8_t **pixelsToLeds(shmimage &image, int pixels_per_led_height, int pixels_per_led_width)
+u_int8_t **pixelsToLeds(ScreenReader &screen, int pixels_per_led_height, int pixels_per_led_width)
 {
-    const int screen_width  = image.getScreenWidth();
-    const int screen_height = image.getScreenHeight();
+    const int screen_width  = screen.getScreenWidth();
+    const int screen_height = screen.getScreenHeight();
 
     u_int8_t **leds = (u_int8_t **)malloc((NUM_LEDS_HEIGHT * 2 + NUM_LEDS_WIDTH * 2) * sizeof(u_int8_t *));
     for (int led_y = 0; led_y < NUM_LEDS_HEIGHT; led_y++)
@@ -197,7 +197,7 @@ u_int8_t **pixelsToLeds(shmimage &image, int pixels_per_led_height, int pixels_p
                     for (int pixel_x = pixels_per_led_width * led_x; pixel_x < pixels_per_led_width * (led_x + 1); pixel_x++)
                     {
                         u_int8_t r, g, b;
-                        convertRGB(image.getPixel(pixel_x, pixel_y), &r, &g, &b);
+                        convertRGB(screen.getPixel(pixel_x, pixel_y), &r, &g, &b);
                         total_r += r;
                         total_g += g;
                         total_b += b;
@@ -217,7 +217,7 @@ u_int8_t **pixelsToLeds(shmimage &image, int pixels_per_led_height, int pixels_p
                     for (int pixel_x = pixels_per_led_width * led_x; pixel_x < pixels_per_led_width * (led_x + 1); pixel_x++)
                     {
                         u_int8_t r, g, b;
-                        convertRGB(image.getPixel(pixel_x, pixel_y), &r, &g, &b);
+                        convertRGB(screen.getPixel(pixel_x, pixel_y), &r, &g, &b);
                         total_r += r;
                         total_g += g;
                         total_b += b;
@@ -234,7 +234,7 @@ u_int8_t **pixelsToLeds(shmimage &image, int pixels_per_led_height, int pixels_p
             for (int pixel_x = screen_width - pixels_per_led_width; pixel_x < screen_width; pixel_x++)
             {
                 u_int8_t r, g, b;
-                convertRGB(image.getPixel(pixel_x, pixel_y), &r, &g, &b);
+                convertRGB(screen.getPixel(pixel_x, pixel_y), &r, &g, &b);
                 total_r += r;
                 total_g += g;
                 total_b += b;
@@ -249,7 +249,7 @@ u_int8_t **pixelsToLeds(shmimage &image, int pixels_per_led_height, int pixels_p
             for (int pixel_x = 0; pixel_x < pixels_per_led_width; pixel_x++)
             {
                 u_int8_t r, g, b;
-                convertRGB(image.getPixel(pixel_x, pixel_y), &r, &g, &b);
+                convertRGB(screen.getPixel(pixel_x, pixel_y), &r, &g, &b);
                 total_r += r;
                 total_g += g;
                 total_b += b;
@@ -380,15 +380,15 @@ int main()
     //     return ret;
     // }
 
-    shmimage image;
+    ScreenReader screen;
 
-    int pixels_per_led_height = image.getScreenHeight() / NUM_LEDS_HEIGHT;
-    int pixels_per_led_width  = image.getScreenWidth () / NUM_LEDS_WIDTH;
+    int pixels_per_led_height = screen.getScreenHeight() / NUM_LEDS_HEIGHT;
+    int pixels_per_led_width  = screen.getScreenWidth () / NUM_LEDS_WIDTH;
     while (true)
     {
-        image.update();
+        screen.update();
 
-        u_int8_t **leds = pixelsToLeds(image, pixels_per_led_height, pixels_per_led_width);
+        u_int8_t **leds = pixelsToLeds(screen, pixels_per_led_height, pixels_per_led_width);
         if (writeToShm(leds) == 0){
             ledPrint(leds);
         }
