@@ -327,12 +327,12 @@ int main()
 
     signal(SIGINT, signal_callback_handler);
     
-    pid = fork();
-    if(pid == 0){ // Child
-        int ret = execlp("python", "python", "leds.py", NULL);
-        perror("[screenreader child] Could not exec python");
-        return ret;
-    }
+    // pid = fork();
+    // if(pid == 0){ // Child
+    //     int ret = execlp("python", "python", "leds.py", NULL);
+    //     perror("[screenreader child] Could not exec python");
+    //     return ret;
+    // }
 
     Display *dsp = XOpenDisplay(NULL);
     if (!dsp)
