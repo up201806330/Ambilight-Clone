@@ -120,6 +120,8 @@ def main():
                 for index, color in enumerate(colors):
                     strip.setPixelColor(index, color)
                 strip.show()
+            else:
+                print(colors)
 
             time.sleep(0.1)
 

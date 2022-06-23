@@ -15,7 +15,7 @@
 #include <X11/extensions/XShm.h>
 #include <stdbool.h>
 
-#define NUM_LEDS_WIDTH 30
+#define NUM_LEDS_WIDTH 32
 #define NUM_LEDS_HEIGHT 20
 #define BPP 4
 
@@ -315,12 +315,12 @@ int main()
 
     signal(SIGINT, signal_callback_handler);
     
-    pid = fork();
-    if(pid == 0){ // Child
-        int ret = execlp("python", "python", "leds.py", NULL);
-        perror("[screenreader child] Could not exec python");
-        return ret;
-    }
+    // pid = fork();
+    // if(pid == 0){ // Child
+    //     int ret = execlp("python", "python", "leds.py", NULL);
+    //     perror("[screenreader child] Could not exec python");
+    //     return ret;
+    // }
 
     Display *dsp = XOpenDisplay(NULL);
     if (!dsp)
