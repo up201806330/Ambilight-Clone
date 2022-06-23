@@ -158,12 +158,15 @@ public:
     }
 };
 
-void convertRGB(u_int32_t color, u_int8_t *r, u_int8_t *g, u_int8_t *b)
-{
-    *r = (color & 0x00FF0000) >> 16;
-    *g = (color & 0x0000FF00) >> 8;
-    *b = (color & 0x000000FF);
-}
+struct Color {
+    uint8_t r, g, b, a;
+    Color(uint32_t color){
+        a = (color & 0xFF000000) >> 24;
+        r = (color & 0x00FF0000) >> 16;
+        g = (color & 0x0000FF00) >> 8;
+        b = (color & 0x000000FF);
+    }
+};
 
 u_int8_t *averageRGB(int total_r, int total_g, int total_b, int pixels_per_led_width, int pixels_per_led_height)
 {
@@ -171,10 +174,6 @@ u_int8_t *averageRGB(int total_r, int total_g, int total_b, int pixels_per_led_w
     led[0] = total_r / (pixels_per_led_width * pixels_per_led_height);
     led[1] = total_g / (pixels_per_led_width * pixels_per_led_height);
     led[2] = total_b / (pixels_per_led_width * pixels_per_led_height);
-
-    led[0] = (led[0] > 10 ? led[0] : 0);
-    led[1] = (led[1] > 10 ? led[1] : 0);
-    led[2] = (led[2] > 10 ? led[2] : 0);
     return led;
 }
 
@@ -199,11 +198,10 @@ u_int8_t **pixelsToLeds(ScreenReader &screen)
                 {
                     for (int pixel_x = pixels_per_led_width * led_x; pixel_x < pixels_per_led_width * (led_x + 1); pixel_x++)
                     {
-                        u_int8_t r, g, b;
-                        convertRGB(screen.getPixel(pixel_x, pixel_y), &r, &g, &b);
-                        total_r += r;
-                        total_g += g;
-                        total_b += b;
+                        Color c(screen.getPixel(pixel_x, pixel_y));
+                        total_r += c.r;
+                        total_g += c.g;
+                        total_b += c.b;
                     }
                 }
                 leds[led_x] = averageRGB(total_r, total_g, total_b, pixels_per_led_width, pixels_per_led_height);
@@ -219,11 +217,10 @@ u_int8_t **pixelsToLeds(ScreenReader &screen)
                 {
                     for (int pixel_x = pixels_per_led_width * led_x; pixel_x < pixels_per_led_width * (led_x + 1); pixel_x++)
                     {
-                        u_int8_t r, g, b;
-                        convertRGB(screen.getPixel(pixel_x, pixel_y), &r, &g, &b);
-                        total_r += r;
-                        total_g += g;
-                        total_b += b;
+                        Color c(screen.getPixel(pixel_x, pixel_y));
+                        total_r += c.r;
+                        total_g += c.g;
+                        total_b += c.b;
                     }
                 }
                 leds[NUM_LEDS_HEIGHT + NUM_LEDS_WIDTH*2 - 1 - led_x] = averageRGB(total_r, total_g, total_b, pixels_per_led_width, pixels_per_led_height);
@@ -236,11 +233,10 @@ u_int8_t **pixelsToLeds(ScreenReader &screen)
         {
             for (int pixel_x = screen_width - pixels_per_led_width; pixel_x < screen_width; pixel_x++)
             {
-                u_int8_t r, g, b;
-                convertRGB(screen.getPixel(pixel_x, pixel_y), &r, &g, &b);
-                total_r += r;
-                total_g += g;
-                total_b += b;
+                Color c(screen.getPixel(pixel_x, pixel_y));
+                total_r += c.r;
+                total_g += c.g;
+                total_b += c.b;
             }
         }
         leds[NUM_LEDS_WIDTH + led_y] = averageRGB(total_r, total_g, total_b, pixels_per_led_width, pixels_per_led_height);
@@ -251,11 +247,10 @@ u_int8_t **pixelsToLeds(ScreenReader &screen)
         {
             for (int pixel_x = 0; pixel_x < pixels_per_led_width; pixel_x++)
             {
-                u_int8_t r, g, b;
-                convertRGB(screen.getPixel(pixel_x, pixel_y), &r, &g, &b);
-                total_r += r;
-                total_g += g;
-                total_b += b;
+                Color c(screen.getPixel(pixel_x, pixel_y));
+                total_r += c.r;
+                total_g += c.g;
+                total_b += c.b;
             }
         }
         leds[NUM_LEDS_WIDTH*2 + NUM_LEDS_HEIGHT*2 - 1 - led_y] = averageRGB(total_r, total_g, total_b, pixels_per_led_width, pixels_per_led_height);
