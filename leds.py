@@ -18,6 +18,7 @@ LED_DMA = 10          # DMA channel to use for generating signal (try 10)
 LED_BRIGHTNESS = 255  # Set to 0 for darkest and 255 for brightest
 LED_INVERT = False    # True to invert the signal (when using NPN transistor level shift)
 LED_CHANNEL = 0       # set to '1' for GPIOs 13, 19, 41, 45 or 53
+NUM_RUNS = 1000       # Number of runs to check performance, -1 for infinite (without execution time)
 
 
 # Define functions which animate LEDs in various ways.
@@ -105,8 +106,11 @@ def main():
         print('[LEDS] Press Ctrl-C to quit.')
     
 
+    start = time.time()
+
+    run = 0
     try:
-        while True:
+        while run < NUM_RUNS:
             # Fill in colors
             colors = []
 
@@ -120,8 +124,8 @@ def main():
                 for index, color in enumerate(colors):
                     strip.setPixelColor(index, color)
                 strip.show()
-            else:
-                print(colors)
+            # else:
+            #     print(colors)
 
             #time.sleep(0.01)
 
@@ -137,6 +141,14 @@ def main():
             # rainbow(strip)
             # rainbowCycle(strip)
             # theaterChaseRainbow(strip)
+            run += 1
+
+        end = time.time()
+        duration = end-start
+        print(f"Time taken for {NUM_RUNS} leds color change : {duration} sec, averaging {(duration / NUM_RUNS) * 1000} ms per led color change.")
+
+        shm.close()
+        sem.close()
 
     except KeyboardInterrupt:
         colorWipe(strip, Color(0, 0, 0), 1)

@@ -33,6 +33,7 @@ using hrc = std::chrono::high_resolution_clock;
 #define NUM_LEDS_HEIGHT 20
 #define BPP 4
 #define LED_PIXELS_COMPENSATION 15
+#define NUM_RUNS 1000   // Number of runs to check performance, -1 for infinite (without execution time)
 
 const int NUM_LEDS_TOTAL = 2 * (NUM_LEDS_WIDTH + NUM_LEDS_HEIGHT);
 
@@ -493,20 +494,37 @@ int main()
 
     const float SCALE_FACTOR = 0.05;
     LedProcessor ledProcessor(screenProcessor, NUM_LEDS_WIDTH, NUM_LEDS_HEIGHT, SCALE_FACTOR);
-
-    while (true)
+    
+    // Time at start of execution
+    auto start = hrc::now();
+  
+    int i = 0;
+    while (i != NUM_RUNS)
     {
         ledProcessor.update();
 
         if (writeToShm(ledProcessor) == 0){
-            ledPrint();
+            // ledPrint();
         }
         else {
             printf("Error writting to shared memory");
         }
-
+        i++;
         //std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
+
+    // Time at end of execution
+    auto end = hrc::now();
+  
+    // Calculating total time taken by the program.
+    double duration = 
+      std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
+  
+    duration *= 1e-9;
+  
+    std::cout << "Time taken for " << NUM_RUNS << " screenreads : " << std::fixed 
+         << duration;
+    std::cout << " sec, averaging " << (duration / NUM_RUNS)*1000 << " ms per screenread." << std::endl;
 
     if(closeAndDeleteShm()) return 1;
 
