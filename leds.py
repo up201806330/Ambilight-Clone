@@ -88,7 +88,7 @@ def colorFromHex(hex : str) -> Color:
     return Color(*tuple(int(hex[i:i+2], 16) for i in (0, 2, 4)))
 
 def main():
-    USE_LEDS = True
+    USE_LEDS = False
 
     # Hardcoded
     shm_name = "/shm_leds"
@@ -106,12 +106,13 @@ def main():
         print('[LEDS] Press Ctrl-C to quit.')
     
 
-    start = time.time()
+    durations = []
 
     run = 0
     try:
         while run < NUM_RUNS:
             # Fill in colors
+            start = time.time()
             colors = []
 
             sem.acquire()
@@ -143,9 +144,18 @@ def main():
             # theaterChaseRainbow(strip)
             run += 1
 
-        end = time.time()
-        duration = end-start
-        print(f"Time taken for {NUM_RUNS} leds color change : {duration} sec, averaging {(duration / NUM_RUNS) * 1000} ms per led color change.")
+            end = time.time()
+            duration = end-start
+            durations.append(duration)
+
+        total_duration = 0
+        max_duration = 0
+        for duration in durations:
+            total_duration += duration
+            if duration > max_duration:
+                max_duration = duration
+        
+        print(f"Time taken for {NUM_RUNS} leds color change : {total_duration} sec, worst case was {max_duration * 1000} ms.")
 
         shm.close()
         sem.close()

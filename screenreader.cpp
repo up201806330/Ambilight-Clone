@@ -495,12 +495,13 @@ int main()
     const float SCALE_FACTOR = 0.05;
     LedProcessor ledProcessor(screenProcessor, NUM_LEDS_WIDTH, NUM_LEDS_HEIGHT, SCALE_FACTOR);
     
-    // Time at start of execution
-    auto start = hrc::now();
   
     int i = 0;
+    double durations[NUM_RUNS];
     while (i != NUM_RUNS)
     {
+        // Time at start of execution
+        auto start = hrc::now();
         ledProcessor.update();
 
         if (writeToShm(ledProcessor) == 0){
@@ -509,22 +510,29 @@ int main()
         else {
             printf("Error writting to shared memory");
         }
+        // Time at end of execution
+        auto end = hrc::now();
+        // Calculating total time taken by the program.
+        double duration = 
+        std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
+        durations[i] = duration * 1e-9;
         i++;
         //std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
 
-    // Time at end of execution
-    auto end = hrc::now();
+    double total_duration = 0;
+    double max_duration = 0;
+    for (int i = 0; i < NUM_RUNS; i++) {
+        total_duration += durations[i];
+        if (durations[i] > max_duration) {
+            max_duration = durations[i];
+        }
+    }
   
-    // Calculating total time taken by the program.
-    double duration = 
-      std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
-  
-    duration *= 1e-9;
   
     std::cout << "Time taken for " << NUM_RUNS << " screenreads : " << std::fixed 
-         << duration;
-    std::cout << " sec, averaging " << (duration / NUM_RUNS)*1000 << " ms per screenread." << std::endl;
+         << total_duration;
+    std::cout << " sec, worst screenread took " << max_duration*1000 << " ms." << std::endl;
 
     if(closeAndDeleteShm()) return 1;
 
