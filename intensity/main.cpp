@@ -25,6 +25,7 @@ const off_t SHM_SIZE = NUM_LEDS_TOTAL*3 + 2;
 
 const int INTENSITY_MIN = 0;
 const int INTENSITY_MAX = 100;
+const int STEP = 10;
 
 enum Key {
     ARROW_RIGHT,
@@ -136,8 +137,8 @@ int main(){
         buf.push_back(c);
         if(CHAR_SEQUENCES.find(buf) != CHAR_SEQUENCES.end()){
             switch(CHAR_SEQUENCES.at(buf)){
-                case ARROW_RIGHT: changeIntensity(+1); break;
-                case ARROW_LEFT : changeIntensity(-1); break;
+                case ARROW_RIGHT: changeIntensity(+STEP); break;
+                case ARROW_LEFT : changeIntensity(-STEP); break;
                 default: throw logic_error("No other value is allowed for enum Key");
             }
             buf.clear();
