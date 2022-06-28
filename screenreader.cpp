@@ -35,6 +35,7 @@ using hrc = std::chrono::high_resolution_clock;
 #define LED_PIXELS_COMPENSATION 15
 
 const int NUM_LEDS_TOTAL = 2 * (NUM_LEDS_WIDTH + NUM_LEDS_HEIGHT);
+const long MILLIS_TO_NANOS = 1000000;
 
 class ScreenReader {
 private:
@@ -453,33 +454,100 @@ void ledPrint(){
     printf("\n\n");
 }
 
-pid_t pid;
+void lock_forever(){
+    sem_t sem;
+    sem_init(&sem, 0, 0);
+    sem_wait(&sem);
+}
 
-void signal_callback_handler(int signum) {
+enum AlarmTask : int {
+    UPDATE_SHM
+};
+
+LedProcessor *ledProcessor = nullptr;
+
+void callbackSIGINT(int sig, siginfo_t *info, void *ucontext) {
     fprintf(stderr, "Signal callback\n");
-
-    kill(pid, SIGINT);
 
     if(closeAndDeleteShm()) exit(1);
 
+    delete ledProcessor;
+
     exit(0);
+}
+
+void updateShm(){
+    ledProcessor->update();
+
+    if (writeToShm(*ledProcessor) == 0){
+        ledPrint();
+    } else {
+        printf("Error writting to shared memory");
+    }
+}
+
+void callbackSIGALRM(int sig, siginfo_t *info, void *ucontext){
+    switch(info->si_value.sival_int){
+        case UPDATE_SHM:
+            updateShm();
+            break;
+        default:
+            fprintf(stderr, "callbackSIGALRM: got unknown task %d\n", info->si_value.sival_int);
+            break;
+    }
+}
+
+int setupSIGINT(){
+    struct sigaction act;
+    act.sa_flags = SA_SIGINFO | SA_RESTART;
+    act.sa_sigaction = callbackSIGINT;
+
+    if(sigaction(SIGINT, &act, NULL) != 0){ perror("sigaction int"); return 1; }
+
+    return 0;
+}
+
+int setupSIGALRM(){
+    struct sigaction act;
+    act.sa_flags = SA_SIGINFO | SA_RESTART;
+    act.sa_sigaction = callbackSIGALRM;
+    
+    if(sigaction(SIGALRM, &act, NULL) != 0){ perror("sigaction alrm"); return 1; }
+
+    struct sigevent sev;
+    sev.sigev_notify = SIGEV_SIGNAL;
+    sev.sigev_signo = SIGALRM;
+    sev.sigev_value.sival_int = UPDATE_SHM;
+
+    timer_t timerid;
+    if(timer_create(CLOCK_REALTIME, &sev, &timerid) != 0){ perror("timer_create"); return 1; }
+    
+    struct itimerspec ts = {
+        { 0, 50*MILLIS_TO_NANOS },
+        { 0, 50*MILLIS_TO_NANOS }
+    };
+
+    if(timer_settime(timerid, 0, &ts, NULL) != 0){ perror("timer_settime"); return 1; }
+
+    return 0;
 }
 
 int main()
 {
     if(createAndOpenShm()) {
-        perror("[SCREENREADER] Could not open shared memory");
+        fprintf(stderr, "[SCREENREADER] Could not open shared memory");
         return 1;
     }
 
-    signal(SIGINT, signal_callback_handler);
-    
-    // pid = fork();
-    // if(pid == 0){ // Child
-    //     int ret = execlp("python", "python", "leds.py", NULL);
-    //     perror("[screenreader child] Could not exec python");
-    //     return ret;
-    // }
+    if(setupSIGINT()){
+        fprintf(stderr, "[SCREENREADER] Could not setup SIGINT");
+        return 1;
+    }
+
+    if(setupSIGALRM()){
+        fprintf(stderr, "[SCREENREADER] Could not setup SIGALRM");
+        return 1;
+    }
 
     ScreenReader screen;
 
@@ -492,23 +560,9 @@ int main()
     );
 
     const float SCALE_FACTOR = 0.05;
-    LedProcessor ledProcessor(screenProcessor, NUM_LEDS_WIDTH, NUM_LEDS_HEIGHT, SCALE_FACTOR);
+    ledProcessor = new LedProcessor(screenProcessor, NUM_LEDS_WIDTH, NUM_LEDS_HEIGHT, SCALE_FACTOR);
 
-    while (true)
-    {
-        ledProcessor.update();
-
-        if (writeToShm(ledProcessor) == 0){
-            ledPrint();
-        }
-        else {
-            printf("Error writting to shared memory");
-        }
-
-        //std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    }
-
-    if(closeAndDeleteShm()) return 1;
+    lock_forever();
 
     return 0;
 }
