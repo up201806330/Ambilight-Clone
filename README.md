@@ -13,4 +13,14 @@ Note for screenreader.c:
 Make sure $DISPLAY is set to `:0` (when running project through ssh, run `export DISPLAY=:0` before other programs)
 
 ## Run 
-`./screenreader | sudo python3 leds.py 2>&1`
+Build project
+
+`make`
+
+Run each process in a separate terminal
+
+`./screenreader.app`
+
+`./intensity.app`
+
+`sudo python3 leds.py`
