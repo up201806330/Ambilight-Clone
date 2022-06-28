@@ -1,4 +1,7 @@
 # Ambilight-Clone
+
+[![build](https://github.com/up201806330/Ambilight-Clone/actions/workflows/build.yml/badge.svg)](https://github.com/up201806330/Ambilight-Clone/actions/workflows/build.yml)
+
 Final project for SETR Course
 
 ## Setup
