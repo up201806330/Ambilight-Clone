@@ -21,7 +21,9 @@ const long MILLIS_TO_NANOS = 1000000;
 const char SHM_NAME[] = "/shm_leds";
 const char SEM_NAME[] = "/sem_leds";
 const mode_t SHM_MODE = 0777;
-const off_t SHM_SIZE = NUM_LEDS_TOTAL*3;
+const off_t SHM_SIZE = NUM_LEDS_TOTAL*3 + 2; // +2 for a 16bit integer denoting intensity
+
+const uint16_t INITIAL_INTENSITY = 100;
 
 int shm_fd;
 void *shm = NULL;
@@ -36,6 +38,10 @@ int createAndOpenShm(){
 
     shm = mmap(NULL, SHM_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
     if(shm == MAP_FAILED) return 1;
+
+    // Initialize intensity
+    uint16_t *intensity = (uint16_t*)((uint8_t*)(shm)+NUM_LEDS_TOTAL*3);
+    *intensity = INITIAL_INTENSITY;
 
     // Semaphore
     if (sem_unlink(SEM_NAME) != 0){
