@@ -23,4 +23,4 @@ Run each process in a separate terminal
 
 `./intensity.app`
 
-`sudo python3 leds.py`
+`sudo python3 leds.py` *must be sudo to write to RaspberryPi's GPIO pins*
