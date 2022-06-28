@@ -10,18 +10,17 @@
 #include "ScreenProcessor.h"
 #include "LedProcessor.h"
 
-#define NUM_LEDS_WIDTH 32
-#define NUM_LEDS_HEIGHT 20
-#define BPP 4
-#define LED_PIXELS_COMPENSATION 15
-
+const int NUM_LEDS_WIDTH = 32;
+const int NUM_LEDS_HEIGHT = 20;
 const int NUM_LEDS_TOTAL = 2 * (NUM_LEDS_WIDTH + NUM_LEDS_HEIGHT);
+
 const long MILLIS_TO_NANOS = 1000000;
 
 const char SHM_NAME[] = "/shm_leds";
 const char SEM_NAME[] = "/sem_leds";
 const mode_t SHM_MODE = 0777;
 const off_t SHM_SIZE = NUM_LEDS_TOTAL*3;
+
 int shm_fd;
 void *shm = NULL;
 sem_t *sem = NULL;
