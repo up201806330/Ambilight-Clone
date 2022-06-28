@@ -1,2 +1,4 @@
 .vscode
-screenreader
+obj
+*.o
+*.app
