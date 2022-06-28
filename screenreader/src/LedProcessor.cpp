@@ -1,6 +1,7 @@
 #include "LedProcessor.h"
 
 #include <cmath>
+#include <iostream>
 
 using hrc = std::chrono::high_resolution_clock;
 
@@ -67,6 +68,7 @@ LedProcessor::LedProcessor(ScreenProcessor &processor_, const int NUM_LEDS_X_, c
     PIXELS_PER_LED_Y(processor.getHeight() / NUM_LEDS_Y),
     leds(2*NUM_LEDS_X_+2*NUM_LEDS_Y_, Color<float>(0))
 {
+    std::cerr << "Precision: " << (double) hrc::period::num / hrc::period::den << "s" << std::endl;
 }
 
 void LedProcessor::update(){
