@@ -180,7 +180,7 @@ int setupSIGALRM(LedProcessor &ledProcessor){
 }
 
 void callbackSIGINT(int sig, siginfo_t *info, void *ucontext) {
-    fprintf(stderr, "Signal callback\n");
+    fprintf(stderr, "SIGINT callback\n");
 
     if(closeAndDeleteShm()) exit(1);
 
