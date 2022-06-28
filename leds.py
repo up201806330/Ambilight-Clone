@@ -18,6 +18,8 @@ LED_DMA = 10          # DMA channel to use for generating signal (try 10)
 LED_BRIGHTNESS = 255  # Set to 0 for darkest and 255 for brightest
 LED_INVERT = False    # True to invert the signal (when using NPN transistor level shift)
 LED_CHANNEL = 0       # set to '1' for GPIOs 13, 19, 41, 45 or 53
+
+PERFORMANCE = True
 NUM_RUNS = 1000       # Number of runs to check performance, -1 for infinite (without execution time)
 
 
@@ -49,13 +51,14 @@ def main():
         print('[LEDS] Press Ctrl-C to quit.')
     
 
-    durations = []
 
+    durations = []
     run = 0
     try:
-        while run < NUM_RUNS:
+        while True:
+            if PERFORMANCE:
+                start = time.time()
             # Fill in colors
-            start = time.time()
             colors = []
 
             sem.acquire()
@@ -74,23 +77,24 @@ def main():
             #     print(colors)
 
             #time.sleep(0.01)
-            run += 1
 
-            end = time.time()
-            duration = end-start
-            durations.append(duration)
+            if PERFORMANCE:
+                end = time.time()
+                duration = end-start
+                durations.append(duration)
+                run += 1
 
-        total_duration = 0
-        max_duration = 0
-        for duration in durations:
-            total_duration += duration
-            if duration > max_duration:
-                max_duration = duration
-        
-        print(f"Time taken for {NUM_RUNS} leds color change : {total_duration} sec, worst case was {max_duration * 1000} ms.")
-
-        shm.close()
-        sem.close()
+                if run == NUM_RUNS:
+                    total_duration = 0
+                    max_duration = 0
+                    for duration in durations:
+                        total_duration += duration
+                        if duration > max_duration:
+                            max_duration = duration
+                    print(f"The last {NUM_RUNS} leds color change took on average {total_duration / NUM_RUNS * 1000} ms, worst case was {max_duration * 1000} ms.")
+                    
+                    durations = []
+                    run = 0
 
     except KeyboardInterrupt:
         colorWipe(strip, Color(0, 0, 0), 1)

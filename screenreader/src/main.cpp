@@ -25,6 +25,9 @@ const off_t SHM_SIZE = NUM_LEDS_TOTAL*3 + 2; // +2 for a 16bit integer denoting 
 
 const uint16_t INITIAL_INTENSITY = 100;
 
+const int NUM_RUNS = 1000;
+const bool PERFORMANCE = true;
+
 int shm_fd;
 void *shm = NULL;
 sem_t *sem = NULL;
@@ -126,18 +129,46 @@ public:
 class UpdateShmAlarmTask : public AlarmTask {
 private:
     LedProcessor &ledProcessor;
+    int runs = 0;
+    double durations[NUM_RUNS];
+    std::chrono::_V2::system_clock::time_point start;
+    std::chrono::_V2::system_clock::time_point end;
+    
 public:
     UpdateShmAlarmTask(LedProcessor &ledProcessor_):
         ledProcessor(ledProcessor_)
     {}
 
     virtual void execute(){
+        if (PERFORMANCE) {
+            start = std::chrono::high_resolution_clock::now();
+        }
         ledProcessor.update();
 
         if (writeToShm(ledProcessor) == 0){
-            ledPrint();
+            // ledPrint();
         } else {
             printf("Error writting to shared memory");
+        }
+        if (PERFORMANCE) {
+            end = std::chrono::high_resolution_clock::now();
+            double duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
+            durations[runs] = duration / MILLIS_TO_NANOS;
+            runs++;
+            if (runs == NUM_RUNS) {
+                double total_duration = 0;
+                double max_duration = 0;
+                for (int i = 0; i < NUM_RUNS; i++) {
+                    total_duration += durations[i];
+                    if (durations[i] > max_duration) {
+                        max_duration = durations[i];
+                    }
+                }
+
+                std::cout << "The last " << NUM_RUNS << " screenreads took on average " << (total_duration / NUM_RUNS) << "ms.";
+                std::cout << " The worst one took " << max_duration << "ms." << std::endl;
+                runs = 0;
+            }
         }
     }
 

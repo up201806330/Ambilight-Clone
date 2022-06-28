@@ -9,6 +9,7 @@
 #include <termios.h>
 #include <unistd.h>
 #include <vector>
+#include <chrono>
 
 #define key 1
 
@@ -26,6 +27,8 @@ const off_t SHM_SIZE = NUM_LEDS_TOTAL*3 + 2;
 const int INTENSITY_MIN = 0;
 const int INTENSITY_MAX = 100;
 const int STEP = 10;
+
+const bool PERFORMANCE = true;
 
 enum Key {
     ARROW_RIGHT,
@@ -133,15 +136,26 @@ int main(){
 
     deque<char> buf;
     char c;
+    std::chrono::_V2::system_clock::time_point start;
+    std::chrono::_V2::system_clock::time_point end;
     while(cin >> c){
+
         buf.push_back(c);
         if(CHAR_SEQUENCES.find(buf) != CHAR_SEQUENCES.end()){
+            if (PERFORMANCE) {
+                start = std::chrono::high_resolution_clock::now();
+            }
             switch(CHAR_SEQUENCES.at(buf)){
                 case ARROW_RIGHT: changeIntensity(+STEP); break;
                 case ARROW_LEFT : changeIntensity(-STEP); break;
-                default: throw logic_error("No other value is allowed for enum Key");
+                default: std::cout << "Not arrow key" << endl; //throw logic_error("No other value is allowed for enum Key");
             }
             buf.clear();
+            if (PERFORMANCE) {
+                auto end = std::chrono::high_resolution_clock::now();
+                double duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
+                std::cout << "Last intensity change took " << duration * 1e-6 << "ms" << endl;
+            }
         }
     }
 
