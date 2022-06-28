@@ -14,6 +14,8 @@ const int NUM_LEDS_WIDTH = 32;
 const int NUM_LEDS_HEIGHT = 20;
 const int NUM_LEDS_TOTAL = 2 * (NUM_LEDS_WIDTH + NUM_LEDS_HEIGHT);
 
+const float EXP_DECAY_SCALE_FACTOR = 0.05;
+
 const long MILLIS_TO_NANOS = 1000000;
 
 const char SHM_NAME[] = "/shm_leds";
@@ -110,64 +112,53 @@ void lock_forever(){
     sem_wait(&sem);
 }
 
-enum AlarmTask : int {
-    UPDATE_SHM
+class AlarmTask {
+public:
+    virtual void execute() = 0;
 };
 
-LedProcessor *ledProcessor = nullptr;
+class UpdateShmAlarmTask : public AlarmTask {
+private:
+    LedProcessor &ledProcessor;
+public:
+    UpdateShmAlarmTask(LedProcessor &ledProcessor_):
+        ledProcessor(ledProcessor_)
+    {}
 
-void callbackSIGINT(int sig, siginfo_t *info, void *ucontext) {
-    fprintf(stderr, "Signal callback\n");
+    virtual void execute(){
+        ledProcessor.update();
 
-    if(closeAndDeleteShm()) exit(1);
-
-    delete ledProcessor;
-
-    exit(0);
-}
-
-int setupSIGINT(){
-    struct sigaction act;
-    act.sa_flags = SA_SIGINFO | SA_RESTART;
-    act.sa_sigaction = callbackSIGINT;
-
-    if(sigaction(SIGINT, &act, NULL) != 0){ perror("sigaction int"); return 1; }
-
-    return 0;
-}
-
-void updateShm(){
-    ledProcessor->update();
-
-    if (writeToShm(*ledProcessor) == 0){
-        ledPrint();
-    } else {
-        printf("Error writting to shared memory");
+        if (writeToShm(ledProcessor) == 0){
+            ledPrint();
+        } else {
+            printf("Error writting to shared memory");
+        }
     }
-}
+
+    virtual ~UpdateShmAlarmTask(){}
+};
 
 void callbackSIGALRM(int sig, siginfo_t *info, void *ucontext){
-    switch(info->si_value.sival_int){
-        case UPDATE_SHM:
-            updateShm();
-            break;
-        default:
-            fprintf(stderr, "callbackSIGALRM: got unknown task %d\n", info->si_value.sival_int);
-            break;
-    }
+    AlarmTask *task = (AlarmTask*)info->si_value.sival_ptr;
+    if(task != nullptr) task->execute();
 }
 
-int setupSIGALRM(){
+UpdateShmAlarmTask *updateShmAlarmTask = nullptr;
+
+int setupSIGALRM(LedProcessor &ledProcessor){
     struct sigaction act;
     act.sa_flags = SA_SIGINFO | SA_RESTART;
     act.sa_sigaction = callbackSIGALRM;
     
     if(sigaction(SIGALRM, &act, NULL) != 0){ perror("sigaction alrm"); return 1; }
 
+    delete updateShmAlarmTask;
+    updateShmAlarmTask = new UpdateShmAlarmTask(ledProcessor);
+
     struct sigevent sev;
     sev.sigev_notify = SIGEV_SIGNAL;
     sev.sigev_signo = SIGALRM;
-    sev.sigev_value.sival_int = UPDATE_SHM;
+    sev.sigev_value.sival_ptr = (void*)updateShmAlarmTask;
 
     timer_t timerid;
     if(timer_create(CLOCK_REALTIME, &sev, &timerid) != 0){ perror("timer_create"); return 1; }
@@ -182,20 +173,31 @@ int setupSIGALRM(){
     return 0;
 }
 
+void callbackSIGINT(int sig, siginfo_t *info, void *ucontext) {
+    fprintf(stderr, "Signal callback\n");
+
+    if(closeAndDeleteShm()) exit(1);
+
+    delete updateShmAlarmTask;
+    updateShmAlarmTask = nullptr;
+
+    exit(0);
+}
+
+int setupSIGINT(){
+    struct sigaction act;
+    act.sa_flags = SA_SIGINFO | SA_RESTART;
+    act.sa_sigaction = callbackSIGINT;
+
+    if(sigaction(SIGINT, &act, NULL) != 0){ perror("sigaction int"); return 1; }
+
+    return 0;
+}
+
 int main()
 {
     if(createAndOpenShm()) {
         fprintf(stderr, "[SCREENREADER] Could not open shared memory");
-        return 1;
-    }
-
-    if(setupSIGINT()){
-        fprintf(stderr, "[SCREENREADER] Could not setup SIGINT");
-        return 1;
-    }
-
-    if(setupSIGALRM()){
-        fprintf(stderr, "[SCREENREADER] Could not setup SIGALRM");
         return 1;
     }
 
@@ -209,8 +211,17 @@ int main()
         PIXELS_PER_LED_AVG_Y
     );
 
-    const float SCALE_FACTOR = 0.05;
-    ledProcessor = new LedProcessor(screenProcessor, NUM_LEDS_WIDTH, NUM_LEDS_HEIGHT, SCALE_FACTOR);
+    LedProcessor ledProcessor(screenProcessor, NUM_LEDS_WIDTH, NUM_LEDS_HEIGHT, EXP_DECAY_SCALE_FACTOR);
+
+    if(setupSIGALRM(ledProcessor)){
+        fprintf(stderr, "[SCREENREADER] Could not setup SIGALRM");
+        return 1;
+    }
+
+    if(setupSIGINT()){
+        fprintf(stderr, "[SCREENREADER] Could not setup SIGINT");
+        return 1;
+    }
 
     lock_forever();
 
