@@ -13,9 +13,6 @@ private:
 private:
     int MARGIN_X, MARGIN_Y;
 
-    XShmSegmentInfo shminfo;
-    XImage *ximage = nullptr;
-    unsigned int *data; // will point to the image's BGRA packed pixels
     XShmSegmentInfo shminfo_bot;
     XShmSegmentInfo shminfo_lef;
     XShmSegmentInfo shminfo_top;
