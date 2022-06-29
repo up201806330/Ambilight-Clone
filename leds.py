@@ -18,6 +18,7 @@ LED_DMA = 10          # DMA channel to use for generating signal (try 10)
 LED_BRIGHTNESS = 255  # Set to 0 for darkest and 255 for brightest
 LED_INVERT = False    # True to invert the signal (when using NPN transistor level shift)
 LED_CHANNEL = 0       # set to '1' for GPIOs 13, 19, 41, 45 or 53
+MILLISECONDS_PER_FRAME = 100
 
 PERFORMANCE = True
 NUM_RUNS = 1000       # Number of runs to check performance, -1 for infinite (without execution time)
@@ -56,8 +57,7 @@ def main():
     run = 0
     try:
         while True:
-            if PERFORMANCE:
-                start = time.time()
+            start = time.time()
             # Fill in colors
             colors = []
 
@@ -78,9 +78,9 @@ def main():
 
             #time.sleep(0.01)
 
+            end = time.time()
+            duration = end-start
             if PERFORMANCE:
-                end = time.time()
-                duration = end-start
                 durations.append(duration)
                 run += 1
 
@@ -95,6 +95,9 @@ def main():
                     
                     durations = []
                     run = 0
+
+            print(MILLISECONDS_PER_FRAME / 1000 - duration)
+            time.sleep(MILLISECONDS_PER_FRAME / 1000 - duration)
 
     except KeyboardInterrupt:
         colorWipe(strip, Color(0, 0, 0), 1)
