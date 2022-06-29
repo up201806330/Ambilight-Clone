@@ -34,7 +34,7 @@ def colorFromHex(hex : str, intensity : int) -> Color:
     return Color(*tuple(int(int(hex[i:i+2], 16) * intensity) for i in (0, 2, 4)))
 
 def main():
-    USE_LEDS = False
+    USE_LEDS = True
 
     # Hardcoded
     shm_name = "/shm_leds"
