@@ -2,6 +2,8 @@
 
 #include <sstream>
 
+#include <iostream>
+
 void ScreenReader::initDisplay(){
     dsp = XOpenDisplay(NULL);
     if (!dsp){
@@ -60,10 +62,10 @@ unsigned int *ScreenReader::createShm(int width, int height, XShmSegmentInfo &sh
 }
 
 void ScreenReader::initShm(){
-    // data_bot = createShm(getScreenWidth(), MARGIN_Y, shminfo_bot);
-    // data_top = createShm(getScreenWidth(), MARGIN_Y, shminfo_top);
-    // data_lef = createShm(MARGIN_X, getScreenHeight() - 2*MARGIN_Y, shminfo_lef);
-    // data_rig = createShm(MARGIN_8X, getScreenHeight() - 2*MARGIN_Y, shminfo_rig);
+    data_bot = createShm(getScreenWidth(), MARGIN_Y, shminfo_bot);
+    data_top = createShm(getScreenWidth(), MARGIN_Y, shminfo_top);
+    data_lef = createShm(MARGIN_X, getScreenHeight() - 2*MARGIN_Y, shminfo_lef);
+    data_rig = createShm(MARGIN_X, getScreenHeight() - 2*MARGIN_Y, shminfo_rig);
     data = createShm(getScreenWidth(), getScreenHeight(), shminfo);
 }
 
@@ -76,8 +78,8 @@ void ScreenReader::initXImage(){
         ZPixmap,
         NULL,
         &shminfo,
-        0,
-        0
+        getScreenWidth (),
+        getScreenHeight()
     );
     if (!ximage){
         throw std::system_error(
@@ -87,47 +89,41 @@ void ScreenReader::initXImage(){
     }
 
     ximage->data = (char *)data;
-    ximage->width  = getScreenWidth ();
-    ximage->height = getScreenHeight();
-    // ximage_bot = XShmCreateImage(dsp, XDefaultVisual(dsp, XDefaultScreen(dsp)), DefaultDepth(dsp, XDefaultScreen(dsp)), ZPixmap, NULL, &shminfo_bot, 0, 0);
-    // ximage_lef = XShmCreateImage(dsp, XDefaultVisual(dsp, XDefaultScreen(dsp)), DefaultDepth(dsp, XDefaultScreen(dsp)), ZPixmap, NULL, &shminfo_lef, 0, 0);
-    // ximage_top = XShmCreateImage(dsp, XDefaultVisual(dsp, XDefaultScreen(dsp)), DefaultDepth(dsp, XDefaultScreen(dsp)), ZPixmap, NULL, &shminfo_top, 0, 0);
-    // ximage_rig = XShmCreateImage(dsp, XDefaultVisual(dsp, XDefaultScreen(dsp)), DefaultDepth(dsp, XDefaultScreen(dsp)), ZPixmap, NULL, &shminfo_rig, 0, 0);
 
-    // if (!ximage_bot || !ximage_lef || !ximage_top || !ximage_rig){
-    //     throw std::system_error(
-    //         std::error_code(errno, std::system_category()),
-    //         "Could not allocate the XImage structures"
-    //     );
-    // }
+    ximage_bot = XShmCreateImage(dsp, XDefaultVisual(dsp, XDefaultScreen(dsp)), DefaultDepth(dsp, XDefaultScreen(dsp)), ZPixmap, NULL, &shminfo_bot, getScreenWidth(), MARGIN_Y);
+    ximage_lef = XShmCreateImage(dsp, XDefaultVisual(dsp, XDefaultScreen(dsp)), DefaultDepth(dsp, XDefaultScreen(dsp)), ZPixmap, NULL, &shminfo_lef, MARGIN_X, getScreenHeight() - 2*MARGIN_Y);
+    ximage_top = XShmCreateImage(dsp, XDefaultVisual(dsp, XDefaultScreen(dsp)), DefaultDepth(dsp, XDefaultScreen(dsp)), ZPixmap, NULL, &shminfo_top, getScreenWidth(), MARGIN_Y);
+    ximage_rig = XShmCreateImage(dsp, XDefaultVisual(dsp, XDefaultScreen(dsp)), DefaultDepth(dsp, XDefaultScreen(dsp)), ZPixmap, NULL, &shminfo_rig, MARGIN_X, getScreenHeight() - 2*MARGIN_Y);
 
-    // ximage_bot->data = (char *)data_bot;
-    // ximage_lef->data = (char *)data_lef;
-    // ximage_top->data = (char *)data_top;
-    // ximage_rig->data = (char *)data_rig;
+    if (!ximage_bot || !ximage_lef || !ximage_top || !ximage_rig){
+        throw std::system_error(
+            std::error_code(errno, std::system_category()),
+            "Could not allocate the XImage structures"
+        );
+    }
 
-    // ximage_bot->width  = getScreenWidth();
-    // ximage_bot->height = MARGIN_Y;
-    // ximage_top->width  = getScreenWidth();
-    // ximage_top->height = MARGIN_Y;
-    // ximage_lef->width  = MARGIN_X;
-    // ximage_rig->width  = MARGIN_X;
-    // ximage_lef->height = getScreenHeight() - 2*MARGIN_Y;
-    // ximage_rig->height = getScreenHeight() - 2*MARGIN_Y;
+    ximage_bot->data = (char *)data_bot;
+    ximage_lef->data = (char *)data_lef;
+    ximage_top->data = (char *)data_top;
+    ximage_rig->data = (char *)data_rig;
+
+
+
 }
 
 ScreenReader::ScreenReader(int NUM_LEDS_X, int NUM_LEDS_Y){
-    // shminfo_bot.shmaddr = (char *)-1;
-    // shminfo_lef.shmaddr = (char *)-1;
-    // shminfo_top.shmaddr = (char *)-1;
-    // shminfo_rig.shmaddr = (char *)-1;
+    shminfo_bot.shmaddr = (char *)-1;
+    shminfo_lef.shmaddr = (char *)-1;
+    shminfo_top.shmaddr = (char *)-1;
+    shminfo_rig.shmaddr = (char *)-1;
     shminfo.shmaddr = (char *)-1;
     initDisplay();
-    initShm();
-    initXImage();
 
     MARGIN_X = getScreenWidth () / NUM_LEDS_X;
     MARGIN_Y = getScreenHeight() / NUM_LEDS_Y;
+
+    initShm();
+    initXImage();
 }
 
 int ScreenReader::getScreenWidth (){ return screenWidth  = XDisplayWidth (dsp, XDefaultScreen(dsp)); }
@@ -135,10 +131,10 @@ int ScreenReader::getScreenHeight(){ return screenHeight = XDisplayHeight(dsp, X
 
 void ScreenReader::update(){
     XShmGetImage(dsp, XDefaultRootWindow(dsp), ximage, 0, 0, AllPlanes);
-    // XShmGetImage(dsp, XDefaultRootWindow(dsp), ximage_bot, 0, screenHeight-MARGIN_Y, AllPlanes);
-    // XShmGetImage(dsp, XDefaultRootWindow(dsp), ximage_lef, 0, MARGIN_Y, AllPlanes);
-    // XShmGetImage(dsp, XDefaultRootWindow(dsp), ximage_top, 0, 0, AllPlanes);
-    // XShmGetImage(dsp, XDefaultRootWindow(dsp), ximage_rig, screenWidth-MARGIN_X, MARGIN_Y, AllPlanes);
+    XShmGetImage(dsp, XDefaultRootWindow(dsp), ximage_bot, 0, screenHeight-MARGIN_Y, AllPlanes);
+    XShmGetImage(dsp, XDefaultRootWindow(dsp), ximage_lef, 0, MARGIN_Y, AllPlanes);
+    XShmGetImage(dsp, XDefaultRootWindow(dsp), ximage_top, 0, 0, AllPlanes);
+    XShmGetImage(dsp, XDefaultRootWindow(dsp), ximage_rig, screenWidth-MARGIN_X, MARGIN_Y, AllPlanes);
 
     // Set alpha channel to 0xff
     uint32_t *p = data;
@@ -146,10 +142,10 @@ void ScreenReader::update(){
         *p++ |= 0xff000000;
     }
     // uint32_t *p;
-    // p = data_bot; for (int i = 0; i < ximage_bot->height * ximage_bot->width; ++i) *p++ |= 0xff000000;
-    // p = data_lef; for (int i = 0; i < ximage_lef->height * ximage_lef->width; ++i) *p++ |= 0xff000000;
-    // p = data_top; for (int i = 0; i < ximage_top->height * ximage_top->width; ++i) *p++ |= 0xff000000;
-    // p = data_rig; for (int i = 0; i < ximage_rig->height * ximage_rig->width; ++i) *p++ |= 0xff000000;
+    p = data_bot; for (int i = 0; i < ximage_bot->height * ximage_bot->width; ++i) *p++ |= 0xff000000;
+    p = data_lef; for (int i = 0; i < ximage_lef->height * ximage_lef->width; ++i) *p++ |= 0xff000000;
+    p = data_top; for (int i = 0; i < ximage_top->height * ximage_top->width; ++i) *p++ |= 0xff000000;
+    p = data_rig; for (int i = 0; i < ximage_rig->height * ximage_rig->width; ++i) *p++ |= 0xff000000;
 }
 
 uint32_t ScreenReader::getPixel(int x, int y){
