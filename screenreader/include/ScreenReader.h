@@ -16,12 +16,25 @@ private:
     XShmSegmentInfo shminfo;
     XImage *ximage = nullptr;
     unsigned int *data; // will point to the image's BGRA packed pixels
+    // XShmSegmentInfo shminfo_bot;
+    // XShmSegmentInfo shminfo_lef;
+    // XShmSegmentInfo shminfo_top;
+    // XShmSegmentInfo shminfo_rig;
+    // XImage *ximage_bot;
+    // XImage *ximage_lef;
+    // XImage *ximage_top;
+    // XImage *ximage_rig;
+    // unsigned int *data_bot;
+    // unsigned int *data_lef;
+    // unsigned int *data_top;
+    // unsigned int *data_rig;
     Display *dsp;
     int screenWidth, screenHeight;
 
 private:
     void initDisplay();
 
+    unsigned int *createShm(int width, int height, XShmSegmentInfo &shminfo);
     void initShm();
 
     void initXImage();

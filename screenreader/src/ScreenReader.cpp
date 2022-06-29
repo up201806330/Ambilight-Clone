@@ -21,10 +21,7 @@ void ScreenReader::initDisplay(){
     }
 }
 
-void ScreenReader::initShm(){
-    int width  = getScreenWidth ();
-    int height = getScreenHeight();
-
+unsigned int *ScreenReader::createShm(int width, int height, XShmSegmentInfo &shminfo){
     // Create a shared memory area
     shminfo.shmid = shmget(IPC_PRIVATE, width * height * BITS_PER_PIXEL, IPC_CREAT | 0600);
     if (shminfo.shmid == -1){
@@ -43,7 +40,7 @@ void ScreenReader::initShm(){
         );
     }
 
-    data = (unsigned int *)shminfo.shmaddr;
+    unsigned int *data = (unsigned int *)shminfo.shmaddr;
     shminfo.readOnly = false;
 
     // Mark the shared memory segment for removal
@@ -58,6 +55,16 @@ void ScreenReader::initShm(){
         );
     }
     XSync(dsp, false);
+
+    return data;
+}
+
+void ScreenReader::initShm(){
+    // data_bot = createShm(getScreenWidth(), MARGIN_Y, shminfo_bot);
+    // data_top = createShm(getScreenWidth(), MARGIN_Y, shminfo_top);
+    // data_lef = createShm(MARGIN_X, getScreenHeight() - 2*MARGIN_Y, shminfo_lef);
+    // data_rig = createShm(MARGIN_8X, getScreenHeight() - 2*MARGIN_Y, shminfo_rig);
+    data = createShm(getScreenWidth(), getScreenHeight(), shminfo);
 }
 
 void ScreenReader::initXImage(){
@@ -82,9 +89,38 @@ void ScreenReader::initXImage(){
     ximage->data = (char *)data;
     ximage->width  = getScreenWidth ();
     ximage->height = getScreenHeight();
+    // ximage_bot = XShmCreateImage(dsp, XDefaultVisual(dsp, XDefaultScreen(dsp)), DefaultDepth(dsp, XDefaultScreen(dsp)), ZPixmap, NULL, &shminfo_bot, 0, 0);
+    // ximage_lef = XShmCreateImage(dsp, XDefaultVisual(dsp, XDefaultScreen(dsp)), DefaultDepth(dsp, XDefaultScreen(dsp)), ZPixmap, NULL, &shminfo_lef, 0, 0);
+    // ximage_top = XShmCreateImage(dsp, XDefaultVisual(dsp, XDefaultScreen(dsp)), DefaultDepth(dsp, XDefaultScreen(dsp)), ZPixmap, NULL, &shminfo_top, 0, 0);
+    // ximage_rig = XShmCreateImage(dsp, XDefaultVisual(dsp, XDefaultScreen(dsp)), DefaultDepth(dsp, XDefaultScreen(dsp)), ZPixmap, NULL, &shminfo_rig, 0, 0);
+
+    // if (!ximage_bot || !ximage_lef || !ximage_top || !ximage_rig){
+    //     throw std::system_error(
+    //         std::error_code(errno, std::system_category()),
+    //         "Could not allocate the XImage structures"
+    //     );
+    // }
+
+    // ximage_bot->data = (char *)data_bot;
+    // ximage_lef->data = (char *)data_lef;
+    // ximage_top->data = (char *)data_top;
+    // ximage_rig->data = (char *)data_rig;
+
+    // ximage_bot->width  = getScreenWidth();
+    // ximage_bot->height = MARGIN_Y;
+    // ximage_top->width  = getScreenWidth();
+    // ximage_top->height = MARGIN_Y;
+    // ximage_lef->width  = MARGIN_X;
+    // ximage_rig->width  = MARGIN_X;
+    // ximage_lef->height = getScreenHeight() - 2*MARGIN_Y;
+    // ximage_rig->height = getScreenHeight() - 2*MARGIN_Y;
 }
 
 ScreenReader::ScreenReader(int NUM_LEDS_X, int NUM_LEDS_Y){
+    // shminfo_bot.shmaddr = (char *)-1;
+    // shminfo_lef.shmaddr = (char *)-1;
+    // shminfo_top.shmaddr = (char *)-1;
+    // shminfo_rig.shmaddr = (char *)-1;
     shminfo.shmaddr = (char *)-1;
     initDisplay();
     initShm();
@@ -99,12 +135,21 @@ int ScreenReader::getScreenHeight(){ return screenHeight = XDisplayHeight(dsp, X
 
 void ScreenReader::update(){
     XShmGetImage(dsp, XDefaultRootWindow(dsp), ximage, 0, 0, AllPlanes);
-    
+    // XShmGetImage(dsp, XDefaultRootWindow(dsp), ximage_bot, 0, screenHeight-MARGIN_Y, AllPlanes);
+    // XShmGetImage(dsp, XDefaultRootWindow(dsp), ximage_lef, 0, MARGIN_Y, AllPlanes);
+    // XShmGetImage(dsp, XDefaultRootWindow(dsp), ximage_top, 0, 0, AllPlanes);
+    // XShmGetImage(dsp, XDefaultRootWindow(dsp), ximage_rig, screenWidth-MARGIN_X, MARGIN_Y, AllPlanes);
+
     // Set alpha channel to 0xff
     uint32_t *p = data;
     for (int i = 0; i < ximage->height * ximage->width; ++i){
         *p++ |= 0xff000000;
     }
+    // uint32_t *p;
+    // p = data_bot; for (int i = 0; i < ximage_bot->height * ximage_bot->width; ++i) *p++ |= 0xff000000;
+    // p = data_lef; for (int i = 0; i < ximage_lef->height * ximage_lef->width; ++i) *p++ |= 0xff000000;
+    // p = data_top; for (int i = 0; i < ximage_top->height * ximage_top->width; ++i) *p++ |= 0xff000000;
+    // p = data_rig; for (int i = 0; i < ximage_rig->height * ximage_rig->width; ++i) *p++ |= 0xff000000;
 }
 
 uint32_t ScreenReader::getPixel(int x, int y){
@@ -113,8 +158,8 @@ uint32_t ScreenReader::getPixel(int x, int y){
         0 <= y && y < screenHeight
     )) throw std::invalid_argument("x and y must be within bounds");
     if(
-        MARGIN_X <= x && x < screenWidth-MARGIN_X &&
-        MARGIN_Y <= y && y < screenWidth-MARGIN_Y
+        MARGIN_X <= x && x < screenWidth -MARGIN_X &&
+        MARGIN_Y <= y && y < screenHeight-MARGIN_Y
     ){
         std::stringstream ss;
         ss  << "(" << x << ", " << y << ") is outside margins; "
@@ -122,7 +167,27 @@ uint32_t ScreenReader::getPixel(int x, int y){
             << "size is (" << screenWidth << ", " << screenHeight << ")";
         throw std::invalid_argument(ss.str());
     }
+
     return data[y * screenWidth + x];
+    // if(x < MARGIN_X){ // Left
+    //     const int dx = x;
+    //     const int dy = y-MARGIN_Y;
+    //     return data_lef[dy * ximage_lef->width + dx];
+    // } else if(screenWidth-MARGIN_X <= x){ // Right
+    //     const int dx = x - (screenWidth-MARGIN_X);
+    //     const int dy = y-MARGIN_Y;
+    //     return data_rig[dy * ximage_rig->width + dx];
+    // } else if(y < MARGIN_Y){ // Top
+    //     const int dx = x;
+    //     const int dy = y;
+    //     return data_top[dy * ximage_top->width + dx];
+    // } else if(screenHeight-MARGIN_Y <= y){ // Bottom
+    //     const int dx = x;
+    //     const int dy = y - (screenHeight-MARGIN_Y);
+    //     return data_bot[dy * ximage_bot->width + dx];
+    // } else {
+    //     throw std::invalid_argument("Something went wrong");
+    // }
 }
 
 ScreenReader::~ScreenReader(){
@@ -131,11 +196,19 @@ ScreenReader::~ScreenReader(){
         XDestroyImage(ximage);
         ximage = NULL;
     }
+    // if (ximage_bot){ XShmDetach(dsp, &shminfo_bot); XDestroyImage(ximage_bot); ximage_bot = nullptr; }
+    // if (ximage_lef){ XShmDetach(dsp, &shminfo_lef); XDestroyImage(ximage_lef); ximage_lef = nullptr; }
+    // if (ximage_top){ XShmDetach(dsp, &shminfo_top); XDestroyImage(ximage_top); ximage_top = nullptr; }
+    // if (ximage_rig){ XShmDetach(dsp, &shminfo_rig); XDestroyImage(ximage_rig); ximage_rig = nullptr; }
 
     if (shminfo.shmaddr != (char *)-1){
         shmdt(shminfo.shmaddr);
         shminfo.shmaddr = (char *)-1;
     }
+    // if (shminfo_bot.shmaddr != (char *)-1){ shmdt(shminfo_bot.shmaddr); shminfo_bot.shmaddr = (char *)-1; }
+    // if (shminfo_lef.shmaddr != (char *)-1){ shmdt(shminfo_lef.shmaddr); shminfo_lef.shmaddr = (char *)-1; }
+    // if (shminfo_top.shmaddr != (char *)-1){ shmdt(shminfo_top.shmaddr); shminfo_top.shmaddr = (char *)-1; }
+    // if (shminfo_rig.shmaddr != (char *)-1){ shmdt(shminfo_rig.shmaddr); shminfo_rig.shmaddr = (char *)-1; }
 
     if(dsp){
         XCloseDisplay(dsp);
