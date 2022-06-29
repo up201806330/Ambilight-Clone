@@ -22,7 +22,7 @@ LED_CHANNEL = 0       # set to '1' for GPIOs 13, 19, 41, 45 or 53
 MILLISECONDS_PER_FRAME = 50
 
 PERFORMANCE = True
-NUM_RUNS = 100       # Number of runs to check performance
+NUM_RUNS = 10       # Number of runs to check performance, -1 for infinite (without execution time)
 
 # Exponential decay
 EXP_DECAY_SCALE_FACTOR = 0.05
@@ -120,6 +120,7 @@ def main():
                     durations = []
                     run = 0
 
+            # print(MILLISECONDS_PER_FRAME / 1000 - duration)
             time.sleep(MILLISECONDS_PER_FRAME / 1000 - duration)
 
     except KeyboardInterrupt:
