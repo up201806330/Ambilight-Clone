@@ -23,7 +23,7 @@ const off_t SHM_SIZE = NUM_LEDS_TOTAL*3 + 2; // +2 for a 16bit integer denoting 
 
 const uint16_t INITIAL_INTENSITY = 100;
 
-const int NUM_RUNS = 100;
+const int NUM_RUNS = 10;
 const bool PERFORMANCE = true;
 
 int shm_fd;
