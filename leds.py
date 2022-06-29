@@ -61,9 +61,9 @@ def main():
             if USE_LEDS:
                 for index, color in enumerate(colors):
                     c = Color(
-                        int(color[0]),
-                        int(color[1]),
-                        int(color[2])
+                        int(color[0]*intensity),
+                        int(color[1]*intensity),
+                        int(color[2]*intensity)
                     )
                     strip.setPixelColor(index, c)
                 strip.show()
