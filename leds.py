@@ -3,6 +3,7 @@
 import time
 from multiprocessing import shared_memory
 import posix_ipc
+import math
 
 from rpi_ws281x import Color, PixelStrip
 
@@ -18,11 +19,13 @@ LED_DMA = 10          # DMA channel to use for generating signal (try 10)
 LED_BRIGHTNESS = 255  # Set to 0 for darkest and 255 for brightest
 LED_INVERT = False    # True to invert the signal (when using NPN transistor level shift)
 LED_CHANNEL = 0       # set to '1' for GPIOs 13, 19, 41, 45 or 53
-MILLISECONDS_PER_FRAME = 100
+MILLISECONDS_PER_FRAME = 50
 
 PERFORMANCE = True
-NUM_RUNS = 1000       # Number of runs to check performance, -1 for infinite (without execution time)
+NUM_RUNS = 100       # Number of runs to check performance
 
+# Exponential decay
+EXP_DECAY_SCALE_FACTOR = 0.05
 
 def colorWipe(strip, color, wait_ms=50):
     """Wipe color across display a pixel at a time."""
@@ -34,8 +37,16 @@ def colorWipe(strip, color, wait_ms=50):
 def colorFromHex(hex : str, intensity : int) -> Color:
     return Color(*tuple(int(int(hex[i:i+2], 16) * intensity) for i in (0, 2, 4)))
 
+def getWeight():
+    nowTime = time.time()
+    delta = nowTime-getWeight.prevTime
+    w = 1-math.exp(-delta/EXP_DECAY_SCALE_FACTOR)
+    getWeight.prevTime = nowTime
+    return w
+getWeight.prevTime = time.time()
+
 def main():
-    USE_LEDS = True
+    USE_LEDS = False
 
     # Hardcoded
     shm_name = "/shm_leds"
@@ -55,23 +66,36 @@ def main():
 
     durations = []
     run = 0
+
+    colors    = [(0,0,0) for _ in range(LED_COUNT)]
+    shmColors = [(0,0,0) for _ in range(LED_COUNT)]
+
     try:
         while True:
             start = time.time()
-            # Fill in colors
-            colors = []
-
             sem.acquire()
-            intensity = int('{:d}'.format(shm.buf[LED_COUNT*3])) / 100
+            intensity = shm.buf[LED_COUNT*3] / 100
 
             for i in range(LED_COUNT):
-                colorHex = ''.join('{:02x}'.format(x) for x in bytes(shm.buf[3*i:3*i+3]))
-                colors.append(colorFromHex(colorHex, intensity))
+                shmColors[i] = tuple(bytes(shm.buf[3*i:3*i+3]))
             sem.release()
-            
+
+            w = getWeight()
+            for i in range(LED_COUNT):
+                colors[i] = (
+                    (1-w) * colors[i][0] + w * shmColors[i][0],
+                    (1-w) * colors[i][1] + w * shmColors[i][1],
+                    (1-w) * colors[i][2] + w * shmColors[i][2],
+                )
+
             if USE_LEDS:
                 for index, color in enumerate(colors):
-                    strip.setPixelColor(index, color)
+                    c = Color(
+                        int(color[0]*intensity),
+                        int(color[1]*intensity),
+                        int(color[2]*intensity)
+                    )
+                    strip.setPixelColor(index, c)
                 strip.show()
             # else:
             #     print(colors)
@@ -96,7 +120,6 @@ def main():
                     durations = []
                     run = 0
 
-            print(MILLISECONDS_PER_FRAME / 1000 - duration)
             time.sleep(MILLISECONDS_PER_FRAME / 1000 - duration)
 
     except KeyboardInterrupt:
