@@ -121,7 +121,7 @@ def main():
                     run = 0
 
             # print(MILLISECONDS_PER_FRAME / 1000 - duration)
-            time.sleep(MILLISECONDS_PER_FRAME / 1000 - duration)
+            time.sleep(max(MILLISECONDS_PER_FRAME / 1000 - duration, 0))
 
     except KeyboardInterrupt:
         colorWipe(strip, Color(0, 0, 0), 1)
