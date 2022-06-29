@@ -14,8 +14,6 @@ const int NUM_LEDS_WIDTH = 32;
 const int NUM_LEDS_HEIGHT = 20;
 const int NUM_LEDS_TOTAL = 2 * (NUM_LEDS_WIDTH + NUM_LEDS_HEIGHT);
 
-const float EXP_DECAY_SCALE_FACTOR = 0.05;
-
 const long MILLIS_TO_NANOS = 1000000;
 
 const char SHM_NAME[] = "/shm_leds";
@@ -217,7 +215,7 @@ int main()
         PIXELS_PER_LED_AVG_Y
     );
 
-    LedProcessor ledProcessor(screenProcessor, NUM_LEDS_WIDTH, NUM_LEDS_HEIGHT, EXP_DECAY_SCALE_FACTOR);
+    LedProcessor ledProcessor(screenProcessor, NUM_LEDS_WIDTH, NUM_LEDS_HEIGHT);
 
     if(setupSIGALRM(ledProcessor)){
         fprintf(stderr, "[SCREENREADER] Could not setup SIGALRM");
