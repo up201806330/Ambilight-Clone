@@ -1,5 +1,7 @@
 #include "ScreenReader.h"
 
+#include <sstream>
+
 void ScreenReader::initDisplay(){
     dsp = XOpenDisplay(NULL);
     if (!dsp){
@@ -82,11 +84,14 @@ void ScreenReader::initXImage(){
     ximage->height = getScreenHeight();
 }
 
-ScreenReader::ScreenReader(){
+ScreenReader::ScreenReader(int NUM_LEDS_X, int NUM_LEDS_Y){
     shminfo.shmaddr = (char *)-1;
     initDisplay();
     initShm();
     initXImage();
+
+    MARGIN_X = getScreenWidth () / NUM_LEDS_X;
+    MARGIN_Y = getScreenHeight() / NUM_LEDS_Y;
 }
 
 int ScreenReader::getScreenWidth (){ return screenWidth  = XDisplayWidth (dsp, XDefaultScreen(dsp)); }
@@ -103,6 +108,20 @@ void ScreenReader::update(){
 }
 
 uint32_t ScreenReader::getPixel(int x, int y){
+    if(!(
+        0 <= x && x < screenWidth &&
+        0 <= y && y < screenHeight
+    )) throw std::invalid_argument("x and y must be within bounds");
+    if(
+        MARGIN_X <= x && x < screenWidth-MARGIN_X &&
+        MARGIN_Y <= y && y < screenWidth-MARGIN_Y
+    ){
+        std::stringstream ss;
+        ss  << "(" << x << ", " << y << ") is outside margins; "
+            << "margins are (" << MARGIN_X << ", " << MARGIN_Y << "); "
+            << "size is (" << screenWidth << ", " << screenHeight << ")";
+        throw std::invalid_argument(ss.str());
+    }
     return data[y * screenWidth + x];
 }
 

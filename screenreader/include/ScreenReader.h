@@ -11,6 +11,8 @@ private:
     static const int BITS_PER_PIXEL = 4;
 
 private:
+    int MARGIN_X, MARGIN_Y;
+
     XShmSegmentInfo shminfo;
     XImage *ximage = nullptr;
     unsigned int *data; // will point to the image's BGRA packed pixels
@@ -25,7 +27,7 @@ private:
     void initXImage();
 
 public:
-    ScreenReader();
+    ScreenReader(int NUM_LEDS_X, int NUM_LEDS_Y);
 
     int getScreenWidth ();
     int getScreenHeight();

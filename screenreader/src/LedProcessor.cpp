@@ -6,14 +6,14 @@
 std::pair<int, int> LedProcessor::indexToPixel(int i){
     if(i < 0){
         throw std::invalid_argument("i must be non-negative");
-    } else if(i < NUM_LEDS_X){
+    } else if(i < NUM_LEDS_X){ // Bottom
         int led_x = NUM_LEDS_X - 1 - i;
 
         int x = PIXELS_PER_LED_X * led_x + PIXELS_PER_LED_X/2;
         int y = SIZE_Y - PIXELS_PER_LED_Y/2;
 
         return std::make_pair(x, y);
-    } else if(i < NUM_LEDS_X+NUM_LEDS_Y){
+    } else if(i < NUM_LEDS_X+NUM_LEDS_Y){ // Left
         i -= NUM_LEDS_X;
 
         int led_y = NUM_LEDS_Y - 1 - i;
@@ -22,7 +22,7 @@ std::pair<int, int> LedProcessor::indexToPixel(int i){
         int y = led_y * PIXELS_PER_LED_Y + PIXELS_PER_LED_Y/2;
 
         return std::make_pair(x, y);
-    } else if(i < 2*NUM_LEDS_X+NUM_LEDS_Y){
+    } else if(i < 2*NUM_LEDS_X+NUM_LEDS_Y){ // Top
         i -= NUM_LEDS_X+NUM_LEDS_Y;
 
         int led_x = i;
@@ -31,7 +31,7 @@ std::pair<int, int> LedProcessor::indexToPixel(int i){
         int y = PIXELS_PER_LED_Y/2;
 
         return std::make_pair(x, y);
-    } else if(i < 2*NUM_LEDS_X+2*NUM_LEDS_Y){
+    } else if(i < 2*NUM_LEDS_X+2*NUM_LEDS_Y){ // Right
         i -= 2*NUM_LEDS_X+NUM_LEDS_Y;
 
         int led_y = i;

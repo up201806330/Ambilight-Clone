@@ -205,7 +205,7 @@ int main()
         return 1;
     }
 
-    ScreenReader screen;
+    ScreenReader screen(NUM_LEDS_WIDTH, NUM_LEDS_HEIGHT);
 
     const int PIXELS_PER_LED_AVG_X = screen.getScreenWidth () / NUM_LEDS_WIDTH;
     const int PIXELS_PER_LED_AVG_Y = screen.getScreenHeight() / NUM_LEDS_HEIGHT;
