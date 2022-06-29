@@ -31,7 +31,7 @@ def colorFromHex(hex : str, intensity : int) -> Color:
     return Color(*tuple(int(int(hex[i:i+2], 16) * intensity) for i in (0, 2, 4)))
 
 def main():
-    USE_LEDS = True
+    USE_LEDS = False
 
     # Hardcoded
     shm_name = "/shm_leds"
@@ -52,16 +52,20 @@ def main():
             colors = []
 
             sem.acquire()
-            intensity = int('{:d}'.format(shm.buf[LED_COUNT*3])) / 100
+            intensity = shm.buf[LED_COUNT*3] / 100
 
             for i in range(LED_COUNT):
-                colorHex = ''.join('{:02x}'.format(x) for x in bytes(shm.buf[3*i:3*i+3]))
-                colors.append(colorFromHex(colorHex, intensity))
+                colors.append(tuple(bytes(shm.buf[3*i:3*i+3])))
             sem.release()
             
             if USE_LEDS:
                 for index, color in enumerate(colors):
-                    strip.setPixelColor(index, color)
+                    c = Color(
+                        int(color[0]),
+                        int(color[1]),
+                        int(color[2])
+                    )
+                    strip.setPixelColor(index, c)
                 strip.show()
             else:
                 print(colors)
