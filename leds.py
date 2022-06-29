@@ -19,6 +19,8 @@ LED_BRIGHTNESS = 255  # Set to 0 for darkest and 255 for brightest
 LED_INVERT = False    # True to invert the signal (when using NPN transistor level shift)
 LED_CHANNEL = 0       # set to '1' for GPIOs 13, 19, 41, 45 or 53
 
+# Exponential decay
+EXP_DECAY_SCALE_FACTOR = 0.05
 
 def colorWipe(strip, color, wait_ms=50):
     """Wipe color across display a pixel at a time."""
@@ -47,10 +49,11 @@ def main():
         strip.begin()
         print('[LEDS] Press Ctrl-C to quit.')
     
+    colors    = [(0,0,0) for _ in range(LED_COUNT)]
+    shmColors = [(0,0,0) for _ in range(LED_COUNT)]
+
     try:
         while True:
-            colors = []
-
             sem.acquire()
             intensity = int('{:d}'.format(shm.buf[LED_COUNT*3])) / 100
 
