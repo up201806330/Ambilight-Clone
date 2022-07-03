@@ -19,6 +19,10 @@ LED_DMA = 10          # DMA channel to use for generating signal (try 10)
 LED_BRIGHTNESS = 255  # Set to 0 for darkest and 255 for brightest
 LED_INVERT = False    # True to invert the signal (when using NPN transistor level shift)
 LED_CHANNEL = 0       # set to '1' for GPIOs 13, 19, 41, 45 or 53
+MILLISECONDS_PER_FRAME = 50
+
+PERFORMANCE = True
+NUM_RUNS = 10       # Number of runs to check performance, -1 for infinite (without execution time)
 
 # Exponential decay
 EXP_DECAY_SCALE_FACTOR = 0.05
@@ -42,7 +46,7 @@ def getWeight():
 getWeight.prevTime = time.time()
 
 def main():
-    USE_LEDS = True
+    USE_LEDS = False
 
     # Hardcoded
     shm_name = "/shm_leds"
@@ -58,11 +62,17 @@ def main():
         strip.begin()
         print('[LEDS] Press Ctrl-C to quit.')
     
+
+
+    durations = []
+    run = 0
+
     colors    = [(0,0,0) for _ in range(LED_COUNT)]
     shmColors = [(0,0,0) for _ in range(LED_COUNT)]
 
     try:
         while True:
+            start = time.time()
             sem.acquire()
             intensity = shm.buf[LED_COUNT*3] / 100
 
@@ -87,10 +97,29 @@ def main():
                     )
                     strip.setPixelColor(index, c)
                 strip.show()
-            else:
-                print(colors)
+            # else:
+            #     print(colors)
 
-            #time.sleep(0.01)
+
+            end = time.time()
+            duration = end-start
+            if PERFORMANCE:
+                durations.append(duration)
+                run += 1
+
+                if run == NUM_RUNS:
+                    total_duration = 0
+                    max_duration = 0
+                    for duration in durations:
+                        total_duration += duration
+                        if duration > max_duration:
+                            max_duration = duration
+                    print(f"The last {NUM_RUNS} leds color change took on average {total_duration / NUM_RUNS * 1000} ms, worst case was {max_duration * 1000} ms.")
+                    
+                    durations = []
+                    run = 0
+
+            time.sleep(max(MILLISECONDS_PER_FRAME / 1000 - duration, 0))
 
     except KeyboardInterrupt:
         colorWipe(strip, Color(0, 0, 0), 1)
