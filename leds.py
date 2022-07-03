@@ -100,7 +100,6 @@ def main():
             # else:
             #     print(colors)
 
-            #time.sleep(0.01)
 
             end = time.time()
             duration = end-start
@@ -120,7 +119,6 @@ def main():
                     durations = []
                     run = 0
 
-            # print(MILLISECONDS_PER_FRAME / 1000 - duration)
             time.sleep(max(MILLISECONDS_PER_FRAME / 1000 - duration, 0))
 
     except KeyboardInterrupt:
