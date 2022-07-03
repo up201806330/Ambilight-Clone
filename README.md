@@ -24,3 +24,13 @@ Run each process in a separate terminal
 `./intensity.app`
 
 `sudo python3 leds.py` (*must be sudo to write to RaspberryPi's GPIO pins*)
+
+## Performance
+
+#### Screenreader
+Change `NUM_RUNS` to the number of screenreads you want, compile with make and run `./screenreader`.
+If `ledPrint();` is not commented, comment for more accurate results.
+
+#### Leds
+Change `NUM_RUNS` to the number of led color change you want to be made, run `./screenreader | sudo python3 leds.py 2>&1`.
+If `else: print(colors)` is not commented, comment for more accurate results.
