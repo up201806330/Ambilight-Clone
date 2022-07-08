@@ -2,7 +2,18 @@
 
 [![build](https://github.com/up201806330/Ambilight-Clone/actions/workflows/build.yml/badge.svg)](https://github.com/up201806330/Ambilight-Clone/actions/workflows/build.yml)
 
-Final project for SETR Course
+- **Project name:** Ambilight TV Project with Raspberry Pi
+- **Short description:** LED strip installed around a screen that reacts to the colors displayed
+- **Environment:** Raspberry Pi OS (Debian-based)
+- **Tools:** Raspberry Pi, C++, Python
+- **Institution:** [FEUP](https://sigarra.up.pt/feup/en/web_page.Inicial)
+- **Course:** [ERTS](https://sigarra.up.pt/feup/en/ucurr_geral.ficha_uc_view?pv_ocorrencia_id=486266) (Embedded and Real Time Systems)
+- **Project grade:** 17.2/20
+- **Group members:**
+    - [Diogo Miguel Ferreira Rodrigues](https://github.com/dmfrodrigues) (<dmfrodrigues2000@gmail.com> / <diogo.rodrigues@fe.up.pt>)
+    - [Maria Aurora Bota](https://github.com/Xavier-Pisco) ([up201806134@edu.fe.up.pt](mailto:up201806134@edu.fe.up.pt))
+    - [Rafael Soares Ribeiro](https://github.com/up201806330) (<up201806330@fe.up.pt>)
+    - [Xavier Ruivo Pisco](https://github.com/Xavier-Pisco) ([up201806134@edu.fe.up.pt](mailto:up201806134@edu.fe.up.pt))
 
 ## Setup
 ### Python
