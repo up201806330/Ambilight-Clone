@@ -15,6 +15,10 @@
     - [Rafael Soares Ribeiro](https://github.com/up201806330) (<up201806330@fe.up.pt>)
     - [Xavier Ruivo Pisco](https://github.com/Xavier-Pisco) ([up201806134@edu.fe.up.pt](mailto:up201806134@edu.fe.up.pt))
 
+## Demonstration
+[![demonstration](https://img.youtube.com/vi/EAQ-qQohB_4/maxresdefault.jpg)](https://youtu.be/EAQ-qQohB_4)
+
+
 ## Setup
 ### Python
 - LED controller library: `sudo pip install rpi_ws281x`
